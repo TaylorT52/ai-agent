@@ -11,9 +11,6 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Constants
-const WEBFORM_BOT_CHANNEL_ID = '1348533943770550284';
-
 // Initialize Discord client
 const client = new Client({
     intents: [
@@ -31,14 +28,6 @@ client.once('ready', () => {
     client.channels.cache.forEach(channel => {
         console.log(`- ${channel.name} (${channel.id})`);
     });
-
-    // Verify access to webform-bot channel
-    const webformChannel = client.channels.cache.get(WEBFORM_BOT_CHANNEL_ID);
-    if (webformChannel) {
-        console.log(`Successfully connected to webform-bot channel (${WEBFORM_BOT_CHANNEL_ID})`);
-    } else {
-        console.error('Could not find webform-bot channel! Please check the channel ID and bot permissions.');
-    }
 });
 
 // Login to Discord
@@ -53,23 +42,23 @@ app.post('/api/chat', async (req, res) => {
             return res.status(400).json({ error: 'Message is required' });
         }
 
-        // Get the webform-bot channel specifically
-        const channel = client.channels.cache.get(WEBFORM_BOT_CHANNEL_ID);
+        // Get the first text channel from the first available guild
+        const channel = client.channels.cache.find(channel => channel.type === 0); // 0 is GUILD_TEXT
         
         if (!channel) {
             return res.status(500).json({ 
-                error: 'Webform bot channel not available',
-                details: 'Bot needs access to the webform-bot channel'
+                error: 'No Discord channel available',
+                details: 'Bot needs to be added to a server with a text channel'
             });
         }
 
-        console.log(`Sending message to webform-bot channel (${channel.id})`);
+        console.log(`Sending message to channel: ${channel.name} (${channel.id})`);
 
         // Send message to Discord
         const sentMessage = await channel.send(message);
         console.log('Message sent successfully');
 
-        // First, wait for bot's response
+        // Wait for bot response
         const botResponse = await new Promise((resolve) => {
             const filter = m => m.author.bot && m.reference?.messageId === sentMessage.id;
             channel.awaitMessages({ filter, max: 1, time: 30000 })
@@ -84,30 +73,7 @@ app.post('/api/chat', async (req, res) => {
                 });
         });
 
-        // Then, wait for user's response
-        const userResponse = await new Promise((resolve) => {
-            const filter = m => !m.author.bot; // Accept any non-bot message
-            channel.awaitMessages({ filter, max: 1, time: 30000 })
-                .then(collected => {
-                    const response = collected.first()?.content;
-                    console.log('User response received:', response);
-                    resolve(response || 'No user response received');
-                })
-                .catch((error) => {
-                    console.error('Error waiting for user response:', error);
-                    resolve('No user response received');
-                });
-        });
-
-        res.json({ 
-            botResponse,
-            userResponse,
-            conversation: [
-                { role: 'user', content: message },
-                { role: 'assistant', content: botResponse },
-                { role: 'user', content: userResponse }
-            ]
-        });
+        res.json({ response: botResponse });
     } catch (error) {
         console.error('Error in /api/chat:', error);
         res.status(500).json({ 
@@ -122,22 +88,20 @@ app.get('/health', (req, res) => {
     const status = {
         status: 'ok',
         botConnected: client.isReady(),
-        webformChannelConnected: false,
         channels: []
     };
 
     // Add channel information if bot is connected
     if (client.isReady()) {
-        const webformChannel = client.channels.cache.get(WEBFORM_BOT_CHANNEL_ID);
-        status.webformChannelConnected = !!webformChannel;
-        
-        if (webformChannel) {
-            status.channels.push({
-                name: webformChannel.name,
-                id: webformChannel.id,
-                type: 'text'
-            });
-        }
+        client.channels.cache.forEach(channel => {
+            if (channel.type === 0) { // Only include text channels
+                status.channels.push({
+                    name: channel.name,
+                    id: channel.id,
+                    type: 'text'
+                });
+            }
+        });
     }
 
     res.json(status);

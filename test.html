@@ -79,19 +79,6 @@
             border-radius: 4px;
             background: #e9ecef;
         }
-        .message {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .message.user {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-        }
-        .message.bot {
-            background: #f3e5f5;
-            border-left: 4px solid #9c27b0;
-        }
     </style>
 </head>
 <body>
@@ -156,7 +143,7 @@
             
             try {
                 sendButton.disabled = true;
-                responseDiv.textContent = 'Sending message and waiting for responses...';
+                responseDiv.textContent = 'Sending message...';
                 
                 const response = await fetch(`${API_BASE_URL}/api/chat`, {
                     method: 'POST',
@@ -170,20 +157,10 @@
                 
                 if (response.ok) {
                     responseDiv.innerHTML = `
-                        <div class="success">Conversation completed!</div>
+                        <div class="success">Message sent successfully!</div>
                         <div style="margin-top: 10px;">
-                            <div class="message user">
-                                <strong>Your message:</strong><br>
-                                ${message}
-                            </div>
-                            <div class="message bot">
-                                <strong>Bot's response:</strong><br>
-                                ${data.botResponse}
-                            </div>
-                            <div class="message user">
-                                <strong>User's response:</strong><br>
-                                ${data.userResponse}
-                            </div>
+                            <strong>Bot Response:</strong><br>
+                            ${data.response}
                         </div>
                     `;
                 } else {
