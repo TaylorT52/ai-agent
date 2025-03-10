@@ -1,0 +1,60 @@
+2025-03-10 15:52:00: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs' imported from /Users/benji/Programming/ai-agent/prodserver/server.js
+2025-03-10 15:52:00:     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+2025-03-10 15:52:00:     at moduleResolve (node:internal/modules/esm/resolve:860:10)
+2025-03-10 15:52:00:     at defaultResolve (node:internal/modules/esm/resolve:984:11)
+2025-03-10 15:52:00:     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+2025-03-10 15:52:00:     at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+2025-03-10 15:52:00:     at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+2025-03-10 15:52:00:     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+2025-03-10 15:52:00:     at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+2025-03-10 15:52:00:   code: 'ERR_MODULE_NOT_FOUND',
+2025-03-10 15:52:00:   url: 'file:///Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs'
+2025-03-10 15:52:00: }
+2025-03-10 15:52:28: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs' imported from /Users/benji/Programming/ai-agent/prodserver/server.js
+2025-03-10 15:52:28:     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+2025-03-10 15:52:28:     at moduleResolve (node:internal/modules/esm/resolve:860:10)
+2025-03-10 15:52:28:     at defaultResolve (node:internal/modules/esm/resolve:984:11)
+2025-03-10 15:52:28:     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+2025-03-10 15:52:28:     at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+2025-03-10 15:52:28:     at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+2025-03-10 15:52:28:     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+2025-03-10 15:52:28:     at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+2025-03-10 15:52:28:   code: 'ERR_MODULE_NOT_FOUND',
+2025-03-10 15:52:28:   url: 'file:///Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs'
+2025-03-10 15:52:28: }
+2025-03-10 15:53:38: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs' imported from /Users/benji/Programming/ai-agent/prodserver/server.js
+2025-03-10 15:53:38:     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+2025-03-10 15:53:38:     at moduleResolve (node:internal/modules/esm/resolve:860:10)
+2025-03-10 15:53:38:     at defaultResolve (node:internal/modules/esm/resolve:984:11)
+2025-03-10 15:53:38:     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+2025-03-10 15:53:38:     at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+2025-03-10 15:53:38:     at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+2025-03-10 15:53:38:     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+2025-03-10 15:53:38:     at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+2025-03-10 15:53:38:   code: 'ERR_MODULE_NOT_FOUND',
+2025-03-10 15:53:38:   url: 'file:///Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs'
+2025-03-10 15:53:38: }
+2025-03-10 15:54:01: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs' imported from /Users/benji/Programming/ai-agent/prodserver/server.js
+2025-03-10 15:54:01:     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+2025-03-10 15:54:01:     at moduleResolve (node:internal/modules/esm/resolve:860:10)
+2025-03-10 15:54:01:     at defaultResolve (node:internal/modules/esm/resolve:984:11)
+2025-03-10 15:54:01:     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+2025-03-10 15:54:01:     at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+2025-03-10 15:54:01:     at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+2025-03-10 15:54:01:     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+2025-03-10 15:54:01:     at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+2025-03-10 15:54:01:   code: 'ERR_MODULE_NOT_FOUND',
+2025-03-10 15:54:01:   url: 'file:///Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs'
+2025-03-10 15:54:01: }
+2025-03-10 15:54:07: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs' imported from /Users/benji/Programming/ai-agent/prodserver/server.js
+2025-03-10 15:54:07:     at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+2025-03-10 15:54:07:     at moduleResolve (node:internal/modules/esm/resolve:860:10)
+2025-03-10 15:54:07:     at defaultResolve (node:internal/modules/esm/resolve:984:11)
+2025-03-10 15:54:07:     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:685:12)
+2025-03-10 15:54:07:     at #cachedDefaultResolve (node:internal/modules/esm/loader:634:25)
+2025-03-10 15:54:07:     at ModuleLoader.resolve (node:internal/modules/esm/loader:617:38)
+2025-03-10 15:54:07:     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:273:38)
+2025-03-10 15:54:07:     at ModuleJob._link (node:internal/modules/esm/module_job:135:49) {
+2025-03-10 15:54:07:   code: 'ERR_MODULE_NOT_FOUND',
+2025-03-10 15:54:07:   url: 'file:///Users/benji/Programming/ai-agent/node_modules/express-rate-limit/dist/index.mjs'
+2025-03-10 15:54:07: }

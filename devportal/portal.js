@@ -69,7 +69,7 @@ function generateCode() {
     }
 
     // Generate the code
-    const widgetConfig = {
+    const config = {
         position: formData.get('position'),
         primaryColor: formData.get('primaryColor'),
         title: formData.get('botName'),
@@ -78,13 +78,8 @@ function generateCode() {
     };
 
     const codeLines = [
-        '<!-- Include the widget script -->',
-        '<script src="widget.js"></script>',
-        '',
-        '<!-- Initialize the widget -->',
-        '<script>',
-        '    const chatbot = new ChatbotWidget(' + JSON.stringify(widgetConfig, null, 4).replace(/^/gm, '    ') + ');',
-        '</script>'
+        '// Configuration for your chatbot',
+        'const config = ' + JSON.stringify(config, null, 4) + ';'
     ];
 
     const codePreview = document.getElementById('codePreview');
@@ -112,4 +107,4 @@ document.getElementById('chatbotConfig').addEventListener('submit', function(e) 
 document.querySelectorAll('.format-select').forEach(select => {
     const options = select.nextElementSibling;
     options.classList.toggle('show', select.value !== '');
-}); 
+});

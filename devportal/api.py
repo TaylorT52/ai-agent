@@ -1,108 +1,32 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, Blueprint
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Blueprint, jsonify, request
 import os
 import json
-import uuid
 import requests
+import uuid
 from dotenv import load_dotenv
+import sys
+import os.path
+
+# Add parent directory to path so we can import app
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__, template_folder='../templates', static_folder='../static')
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev')  # Change this in production!
-
-# Database configuration
-db_path = os.path.join(os.path.dirname(__file__), 'users.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-# User model
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    api_key = db.Column(db.String(40), unique=True, nullable=True)
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-    def generate_api_key(self):
-        self.api_key = f"key_{uuid.uuid4().hex[:20]}"
-        return self.api_key
-
-# Form Definition model
-class FormDefinition(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    name = db.Column(db.String(80), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    structure = db.Column(db.Text, nullable=False)  # JSON structure of the form
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
-    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
-
-    user = db.relationship('User', backref=db.backref('forms', lazy=True))
-
-# Form Submission model
-class FormSubmission(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    form_id = db.Column(db.Integer, db.ForeignKey('form_definition.id'), nullable=False)
-    discord_user_id = db.Column(db.String(80), nullable=False)
-    data = db.Column(db.Text, nullable=False)  # JSON with the submitted answers
-    status = db.Column(db.String(20), default='pending')  # pending, in_progress, completed
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
-    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
-
-    form = db.relationship('FormDefinition', backref=db.backref('submissions', lazy=True))
-
-# Create all database tables
-with app.app_context():
-    db.create_all()
-    # Create a demo user if none exists
-    if not User.query.filter_by(username='demo').first():
-        demo_user = User(username='demo', email='demo@example.com')
-        demo_user.set_password('demo123')
-        demo_user.generate_api_key()
-        db.session.add(demo_user)
-        db.session.commit()
+# Create a Flask Blueprint
+api_bp = Blueprint('api', __name__, url_prefix='/api')
 
 # Discord Bot API URL (this would be your deployed API endpoint)
 BOT_API_URL = os.getenv('BOT_API_URL', 'http://localhost:8000')
 # Mistral API key
 MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
 
-# Routes
-@app.route('/')
-def index():
-    # Directly show dashboard without login
-    return render_template('dashboard.html', user={'username': 'Demo User'})
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    # Bypass login and redirect to dashboard
-    return redirect(url_for('index'))
-
-@app.route('/dashboard')
-def dashboard():
-    # Directly show dashboard without login check
-    return render_template('dashboard.html', user={'username': 'Demo User'})
-
-@app.route('/logout')
-def logout():
-    session.pop('user_id', None)
-    flash('You have been logged out', 'info')
-    return redirect(url_for('index'))
-
-# API Routes
-@app.route('/api/generate-form', methods=['POST'])
+@api_bp.route('/generate-form', methods=['POST'])
 def generate_form():
     """Generate a form structure from a natural language description using Mistral AI"""
+    # Import here to avoid circular imports
+    from devportal.app import db, User, FormDefinition, FormSubmission
+    
     description = request.json.get('description')
     if not description:
         return jsonify({'error': 'Description is required'}), 400
@@ -206,9 +130,12 @@ def call_mistral_api_for_form_generation(description):
             {'name': 'email', 'type': 'email', 'prompt': "What's your email address?", 'required': True}
         ]
 
-@app.route('/api/forms', methods=['GET'])
+@api_bp.route('/forms', methods=['GET'])
 def get_forms():
     """Get all forms for the current user"""
+    # Import here to avoid circular imports
+    from devportal.app import db, User, FormDefinition, FormSubmission
+    
     # In a real implementation, we would get the user from the session
     # For the prototype, we'll return a mock response
     mock_forms = [
@@ -230,9 +157,12 @@ def get_forms():
     
     return jsonify(mock_forms)
 
-@app.route('/api/forms', methods=['POST'])
+@api_bp.route('/forms', methods=['POST'])
 def create_form():
     """Create a new form definition"""
+    # Import here to avoid circular imports
+    from devportal.app import db, User, FormDefinition, FormSubmission
+    
     data = request.json
     if not data or 'name' not in data or 'structure' not in data:
         return jsonify({'error': 'Name and structure are required'}), 400
@@ -242,9 +172,12 @@ def create_form():
     
     return jsonify({'id': uuid.uuid4().hex, 'success': True})
 
-@app.route('/api/start-form', methods=['POST'])
+@api_bp.route('/start-form', methods=['POST'])
 def start_form():
     """Start the form collection process via Discord"""
+    # Import here to avoid circular imports
+    from devportal.app import db, User, FormDefinition, FormSubmission
+    
     # Validate API key
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -296,9 +229,12 @@ def start_form():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/regenerate-api-key', methods=['POST'])
+@api_bp.route('/regenerate-api-key', methods=['POST'])
 def regenerate_api_key():
     """Regenerate the API key for the current user"""
+    # Import here to avoid circular imports
+    from devportal.app import db, User, FormDefinition, FormSubmission
+    
     # In a real implementation, we would get the user from the session
     # For the prototype, we'll use the demo user
     
@@ -310,6 +246,3 @@ def regenerate_api_key():
     db.session.commit()
     
     return jsonify({'api_key': api_key})
-
-if __name__ == '__main__':
-    app.run(debug=True)

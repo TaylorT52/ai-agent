@@ -119,28 +119,26 @@
         <div class="instructions">
             <h2>Integration Instructions</h2>
             <ol>
-                <li>Include our script in your HTML:
-                    <div class="code-preview">&lt;script src="https://your-domain.com/widget.js"&gt;&lt;/script&gt;</div>
+                <li>Use your API key to authenticate with our service:
+                    <div class="code-preview">// Example API request
+fetch('https://api.example.com/endpoint', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer YOUR_API_KEY'
+    },
+    body: JSON.stringify({
+        message: 'Your message here'
+    })
+})</div>
                 </li>
-                <li>Initialize the widget with your API key:
-                    <div class="code-preview">const chatbot = new ChatbotWidget({
-    apiKey: 'YOUR_API_KEY',
-    position: 'bottom-right',
-    primaryColor: '#007bff',
-    title: 'Chat with AI',
-    placeholder: 'Type your message...'
-});</div>
-                </li>
-                <li>Customize the appearance and behavior using the available options:
-                    <div class="code-preview">// Available options
+                <li>Configure your application settings:
+                    <div class="code-preview">// Available configuration options
 {
     apiKey: string,        // Your API key (required)
-    position: string,      // 'bottom-right' or 'bottom-left'
-    primaryColor: string,  // Any valid CSS color
-    title: string,        // Chat widget title
-    placeholder: string,  // Input placeholder text
-    width: number,       // Widget width in pixels
-    height: number      // Widget height in pixels
+    endpoint: string,      // API endpoint
+    timeout: number,       // Request timeout in ms
+    retries: number        // Number of retry attempts
 }</div>
                 </li>
             </ol>
@@ -168,4 +166,4 @@
         }
     </script>
 </body>
-</html> 
+</html>

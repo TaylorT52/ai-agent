@@ -1,10 +1,12 @@
 import os
 import discord
 import logging
-
+import asyncio
 from discord.ext import commands
 from dotenv import load_dotenv
 from agent import MistralAgent
+from user_manager import UserManager
+from form_handler import FormHandler
 
 PREFIX = "!"
 
@@ -23,13 +25,17 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 # Import the Mistral agent from the agent.py file
 agent = MistralAgent()
 
-# Initialize the user manager
+# Initialize the user manager and form handler
 user_manager = UserManager()
+form_handler = FormHandler(user_manager)
+
+# Dictionary to track users with active form collection sessions
+active_form_users = {}
 
 # Get the token from the environment variables
 token = os.getenv("DISCORD_TOKEN")
 
-print("Starting bot...") 
+print("Starting bot...")
 
 @bot.event
 async def on_ready():
@@ -55,6 +61,22 @@ async def on_message(message: discord.Message):
 
     # Ignore messages from self or other bots to prevent infinite loops.
     if message.author.bot or message.content.startswith("!"):
+        return
+    
+    # Check if this user has an active form collection session
+    user_id = str(message.author.id)
+    if user_id in active_form_users:
+        # Process form response
+        is_complete = await form_handler.process_response(
+            user_id, 
+            message.content,
+            callback=lambda resp: message.author.send(resp)
+        )
+        
+        if is_complete:
+            # Form collection is complete, remove from active sessions
+            del active_form_users[user_id]
+        
         return
 
     # Process the message with the agent you wrote
@@ -109,7 +131,7 @@ async def register(ctx):
         else:
             await user.send("Registration failed. You might already have an account.")
             
-    except TimeoutError:
+    except asyncio.TimeoutError:
         await user.send("Registration timed out. Please try again.")
     except Exception as e:
         await user.send(f"An error occurred during registration. Please try again later.")
@@ -142,11 +164,74 @@ async def signin(ctx):
         else:
             await user.send("Sign in failed. Please check your password and try again.")
             
-    except TimeoutError:
+    except asyncio.TimeoutError:
         await user.send("Sign in timed out. Please try again.")
     except Exception as e:
         await user.send(f"An error occurred during sign in. Please try again later.")
         logger.error(f"Sign in error: {e}")
+
+@bot.command(name="formcollect", help="Start a form collection process from an API request")
+async def form_collect(ctx, form_id: str = "sample-form"):
+    """Start a form collection process with the user."""
+    # Try to send a direct message to the user
+    user = ctx.author
+    user_id = str(user.id)
+    
+    try:
+        # Start the form collection process
+        success, session_id = await form_handler.start_form_collection(
+            user_id,
+            form_id,
+            callback=lambda resp: user.send(resp)
+        )
+        
+        if success:
+            # Add the user to active form sessions
+            active_form_users[user_id] = session_id
+            
+            if ctx.guild:  # If this was a server command, acknowledge it
+                await ctx.send(f"{user.mention}, I've sent you a DM to collect the form information.")
+        else:
+            await user.send(f"Failed to start form collection: {session_id}")
+    
+    except Exception as e:
+        logger.error(f"Error starting form collection: {e}")
+        await user.send("An error occurred while trying to start the form collection. Please try again later.")
+
+@bot.command(name="api_collect", help="Start a form collection process from an API request")
+async def api_collect(ctx, discord_user_id: str, form_id: str, api_key: str = None):
+    """Start a form collection process with another user via API."""
+    # This command should only be usable by authorized users
+    if ctx.author.id != bot.owner_id and not ctx.author.guild_permissions.administrator:
+        await ctx.send("You don't have permission to use this command.")
+        return
+    
+    # In a real implementation, we would validate the API key
+    
+    try:
+        # Find the user
+        user = await bot.fetch_user(int(discord_user_id))
+        if not user:
+            await ctx.send(f"Could not find user with ID {discord_user_id}")
+            return
+        
+        # Start the form collection process
+        success, session_id = await form_handler.start_form_collection(
+            discord_user_id,
+            form_id,
+            callback=lambda resp: user.send(resp)
+        )
+        
+        if success:
+            # Add the user to active form sessions
+            active_form_users[discord_user_id] = session_id
+            await ctx.send(f"Form collection started for user {user}")
+        else:
+            await ctx.send(f"Failed to start form collection: {session_id}")
+    
+    except Exception as e:
+        logger.error(f"Error starting API form collection: {e}")
+        await ctx.send(f"An error occurred: {str(e)}")
 
 print("About to run bot...")  
 

@@ -117,85 +117,6 @@ client.login(process.env.DISCORD_TOKEN)
         console.error('3. The bot has the necessary permissions');
     });
 
-// API Routes
-app.post('/api/chat', async (req, res) => {
-    try {
-        const { message, username } = req.body;
-
-        if (!message || !username) {
-            return res.status(400).json({ 
-                error: 'Missing required fields',
-                details: 'Message and username are required'
-            });
-        }
-
-        // Basic input validation
-        if (message.length > 2000) {
-            return res.status(400).json({
-                error: 'Message too long',
-                details: 'Message must be less than 2000 characters'
-            });
-        }
-
-        if (username.length > 32) {
-            return res.status(400).json({
-                error: 'Username too long',
-                details: 'Username must be less than 32 characters'
-            });
-        }
-
-        // Check if bot is connected
-        if (!client.isReady()) {
-            return res.status(503).json({
-                error: 'Service unavailable',
-                details: 'Discord bot is not connected. Please check the server logs for details.'
-            });
-        }
-
-        // Check if we have the channel reference
-        if (!webformBotChannel) {
-            return res.status(404).json({ 
-                error: 'Channel not found',
-                details: 'The webform-bot channel does not exist. Please create a channel named "webform-bot".'
-            });
-        }
-
-        console.log(`Sending message from ${username} to webform-bot channel`);
-
-        // Send message to Discord with username prefix
-        const formattedMessage = `[${username}]: ${message}`;
-        await webformBotChannel.send(formattedMessage);
-        console.log('Message sent successfully');
-
-        // Wait for next bot response in channel
-        const botResponse = await new Promise((resolve) => {
-            const filter = m => {
-                return m.author.bot && 
-                       m.author.id !== client.user.id; // Ignore our own messages
-            };
-            
-            webformBotChannel.awaitMessages({ filter, max: 1, time: 30000 })
-                .then(collected => {
-                    const response = collected.first()?.content;
-                    console.log('Bot response received:', response);
-                    resolve(response || 'No response received');
-                })
-                .catch((error) => {
-                    console.error('Error waiting for bot response:', error);
-                    resolve('No response received');
-                });
-        });
-
-        res.json({ response: botResponse });
-    } catch (error) {
-        console.error('Error in /api/chat:', error);
-        res.status(500).json({ 
-            error: 'Internal server error',
-            details: error.message
-        });
-    }
-});
-
 // Health check endpoint
 app.get('/health', async (req, res) => {
     const status = {
@@ -239,4 +160,4 @@ app.use((err, req, res, next) => {
 // Start server
 app.listen(port, '0.0.0.0', () => {
     console.log(`Server running on port ${port}`);
-}); 
+});
