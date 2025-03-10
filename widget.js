@@ -5,12 +5,15 @@ class ChatbotWidget {
             primaryColor: options.primaryColor || '#007bff',
             title: options.title || 'Chat with us',
             placeholder: options.placeholder || 'Type your message...',
+            questions: options.questions || [],
             apiUrl: options.apiUrl || 'http://localhost:3000/api/chat',
             ...options
         };
         
         this.isOpen = false;
         this.messages = [];
+        this.currentQuestion = null;
+        this.collectedData = {};
         this.init();
     }
 
@@ -18,6 +21,92 @@ class ChatbotWidget {
         this.createStyles();
         this.createWidget();
         this.attachEventListeners();
+        
+        // Add default questions if provided
+        if (this.options.questions.length > 0) {
+            this.addDefaultQuestions();
+            this.startDataCollection();
+        }
+    }
+
+    startDataCollection() {
+        if (this.options.questions.length > 0) {
+            this.currentQuestion = this.options.questions[0];
+            this.addMessage(this.currentQuestion.question, 'bot');
+        }
+    }
+
+    validateInput(input, format) {
+        const validators = {
+            email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+            phone: /^\+?[\d\s-]{10,}$/,
+            url: /^https?:\/\/[\w-]+(\.[\w-]+)+[/#?]?.*$/,
+            date: /^\d{4}-\d{2}-\d{2}$/,
+            number: /^\d+$/
+        };
+
+        if (!validators[format]) return true;
+        return validators[format].test(input);
+    }
+
+    handleUserInput(input) {
+        if (!this.currentQuestion) return;
+
+        const { question, format, required, validate } = this.currentQuestion;
+
+        // Check if input is empty and field is required
+        if (required && !input.trim()) {
+            this.addMessage("This field is required. Please provide an answer.", 'bot');
+            return;
+        }
+
+        // Validate format if required
+        if (validate && input.trim() && !this.validateInput(input, format)) {
+            this.addMessage(`Please provide a valid ${format} format.`, 'bot');
+            return;
+        }
+
+        // Store the answer
+        this.collectedData[question] = input;
+
+        // Move to next question
+        const currentIndex = this.options.questions.indexOf(this.currentQuestion);
+        if (currentIndex < this.options.questions.length - 1) {
+            this.currentQuestion = this.options.questions[currentIndex + 1];
+            this.addMessage(this.currentQuestion.question, 'bot');
+        } else {
+            // All questions answered
+            this.addMessage("Thank you for providing all the information!", 'bot');
+            this.currentQuestion = null;
+            
+            // Send collected data to server
+            this.sendDataToServer();
+        }
+    }
+
+    async sendDataToServer() {
+        try {
+            this.addMessage("Sending your information...", 'bot');
+            const response = await fetch(this.options.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: 'form_data',
+                    data: this.collectedData
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to send data');
+            }
+
+            this.addMessage("Your information has been successfully submitted!", 'bot');
+        } catch (error) {
+            this.addMessage("Sorry, there was an error submitting your information. Please try again later.", 'bot');
+            console.error('Error:', error);
+        }
     }
 
     createStyles() {
@@ -148,6 +237,27 @@ class ChatbotWidget {
             .chatbot-input button:hover {
                 opacity: 0.9;
             }
+
+            .quick-questions {
+                padding: 10px 20px;
+                border-top: 1px solid #eee;
+            }
+
+            .quick-question {
+                display: inline-block;
+                padding: 8px 15px;
+                margin: 5px;
+                background: #f0f0f0;
+                border-radius: 15px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: all 0.2s ease;
+            }
+
+            .quick-question:hover {
+                background: var(--primary-color);
+                color: white;
+            }
         `;
 
         const styleSheet = document.createElement('style');
@@ -169,6 +279,7 @@ class ChatbotWidget {
         this.widget.innerHTML = `
             <div class="chatbot-header">${this.options.title}</div>
             <div class="chatbot-messages"></div>
+            <div class="quick-questions"></div>
             <div class="chatbot-input">
                 <form>
                     <input type="text" placeholder="${this.options.placeholder}">
@@ -183,8 +294,22 @@ class ChatbotWidget {
         document.body.appendChild(this.widget);
         
         this.messagesContainer = this.widget.querySelector('.chatbot-messages');
+        this.quickQuestionsContainer = this.widget.querySelector('.quick-questions');
         this.form = this.widget.querySelector('form');
         this.input = this.widget.querySelector('input');
+    }
+
+    addDefaultQuestions() {
+        this.options.questions.forEach(q => {
+            const questionButton = document.createElement('div');
+            questionButton.className = 'quick-question';
+            questionButton.textContent = q.question;
+            questionButton.onclick = () => {
+                this.addMessage(q.question, 'user');
+                this.addMessage(q.answer, 'bot');
+            };
+            this.quickQuestionsContainer.appendChild(questionButton);
+        });
     }
 
     attachEventListeners() {
@@ -198,39 +323,43 @@ class ChatbotWidget {
                 this.addMessage(message, 'user');
                 this.input.value = '';
                 
-                try {
-                    // Show typing indicator
-                    this.addMessage('Typing...', 'bot');
-                    
-                    console.log('Making API call to:', this.options.apiUrl);
-                    // Make API call to backend
-                    const response = await fetch(this.options.apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ message })
-                    });
-                    
-                    const data = await response.json();
-                    console.log('Received response:', data);
-                    
-                    // Remove typing indicator
-                    this.messagesContainer.removeChild(this.messagesContainer.lastChild);
-                    
-                    if (!response.ok) {
-                        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                if (this.currentQuestion) {
+                    this.handleUserInput(message);
+                } else {
+                    try {
+                        // Show typing indicator
+                        this.addMessage('Typing...', 'bot');
+                        
+                        console.log('Making API call to:', this.options.apiUrl);
+                        // Make API call to backend
+                        const response = await fetch(this.options.apiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ message })
+                        });
+                        
+                        const data = await response.json();
+                        console.log('Received response:', data);
+                        
+                        // Remove typing indicator
+                        this.messagesContainer.removeChild(this.messagesContainer.lastChild);
+                        
+                        if (!response.ok) {
+                            throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                        }
+                        
+                        // Add bot response
+                        this.addMessage(data.response, 'bot');
+                    } catch (error) {
+                        // Remove typing indicator
+                        this.messagesContainer.removeChild(this.messagesContainer.lastChild);
+                        
+                        // Show error message
+                        console.error('Error details:', error);
+                        this.addMessage(`Error: ${error.message}`, 'bot');
                     }
-                    
-                    // Add bot response
-                    this.addMessage(data.response, 'bot');
-                } catch (error) {
-                    // Remove typing indicator
-                    this.messagesContainer.removeChild(this.messagesContainer.lastChild);
-                    
-                    // Show error message
-                    console.error('Error details:', error);
-                    this.addMessage(`Error: ${error.message}`, 'bot');
                 }
             }
         });
