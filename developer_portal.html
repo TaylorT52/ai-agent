@@ -20,41 +20,30 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        h1 {
+        h1, h2 {
             color: #333;
-            margin-bottom: 30px;
-        }
-        .form-group {
             margin-bottom: 20px;
         }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #555;
-            font-weight: 500;
-        }
-        input[type="text"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 8px;
+        .api-section {
+            background: #fff;
             border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 14px;
+            padding: 20px;
+            margin-bottom: 30px;
         }
-        textarea {
-            height: 100px;
-            resize: vertical;
-        }
-        .question-container {
-            border: 1px solid #eee;
+        .api-key {
+            background: #f8f9fa;
             padding: 15px;
-            margin-bottom: 15px;
             border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .question-container h3 {
-            margin-top: 0;
-            color: #444;
+        .api-key button {
+            padding: 5px 10px;
+            font-size: 12px;
         }
         button {
             background: #007bff;
@@ -68,28 +57,13 @@
         button:hover {
             background: #0056b3;
         }
-        .preview-section {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        .preview-section h2 {
-            color: #333;
-            margin-bottom: 20px;
-        }
         .code-preview {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 4px;
             font-family: monospace;
             white-space: pre-wrap;
-        }
-        .format-options {
-            display: none;
-            margin-top: 10px;
-        }
-        .format-options.show {
-            display: block;
+            margin: 10px 0;
         }
         .instructions {
             background: #f8f9fa;
@@ -100,7 +74,6 @@
         }
         .instructions h2 {
             margin-top: 0;
-            color: #333;
         }
         .instructions ol {
             padding-left: 20px;
@@ -129,127 +102,70 @@
     <div class="container">
         <h1>Developer Portal</h1>
 
-        <div class="instructions">
-            <h2>Integration Guide</h2>
-            <ol>
-                <li>Download the required files:
-                    <ul>
-                        <li><code>widget.js</code> - The main chatbot widget</li>
-                        <li>Copy the generated configuration code</li>
-                    </ul>
-                </li>
-                <li>Add the files to your project:
-                    <ul>
-                        <li>Place <code>widget.js</code> in your website's assets directory</li>
-                        <li>Update the script source path in the generated code if needed</li>
-                    </ul>
-                </li>
-                <li>Add the generated code to your website:
-                    <ul>
-                        <li>Place it before the closing <code>&lt;/body&gt;</code> tag</li>
-                        <li>Make sure the path to <code>widget.js</code> is correct</li>
-                    </ul>
-                </li>
-                <li>Test the integration:
-                    <ul>
-                        <li>Open your website</li>
-                        <li>Look for the chat icon in the selected position</li>
-                        <li>Click it to test the questions flow</li>
-                        <li>Verify that validation works as expected</li>
-                    </ul>
-                </li>
-            </ol>
-
-            <div class="note">
-                <strong>Note:</strong> Make sure your server is running to handle the form submissions. The widget will send data to the URL specified in the <code>apiUrl</code> option.
+        <div class="api-section">
+            <h2>Your API Key</h2>
+            <div class="api-key">
+                <span id="apiKeyDisplay">••••••••••••••••</span>
+                <div>
+                    <button onclick="generateApiKey()">Generate New Key</button>
+                    <button onclick="copyApiKey()">Copy</button>
+                </div>
             </div>
-
             <div class="note">
-                <strong>Important:</strong> For proper validation, include the widget in a proper web server environment. Opening the file directly (using file://) may cause validation and API features to fail.
+                Keep your API key secure and never share it publicly. If your key is compromised, generate a new one immediately.
             </div>
         </div>
-        
-        <form id="chatbotConfig">
-            <div class="form-group">
-                <label for="botName">Bot Name</label>
-                <input type="text" id="botName" name="botName" value="Chat with us" required>
-            </div>
 
-            <div class="form-group">
-                <label for="primaryColor">Primary Color</label>
-                <input type="text" id="primaryColor" name="primaryColor" value="#007bff" required>
-            </div>
-
-            <div class="form-group">
-                <label for="position">Widget Position</label>
-                <select id="position" name="position">
-                    <option value="bottom-right">Bottom Right</option>
-                    <option value="bottom-left">Bottom Left</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Data Collection Questions</label>
-                <div id="questionsContainer">
-                    <div class="question-container">
-                        <h3>Question 1</h3>
-                        <input type="text" name="question1" placeholder="Enter your question" required>
-                        <select name="format1" class="format-select" required>
-                            <option value="">Select data format</option>
-                            <option value="text">Text</option>
-                            <option value="email">Email</option>
-                            <option value="phone">Phone Number</option>
-                            <option value="date">Date</option>
-                            <option value="number">Number</option>
-                            <option value="url">URL</option>
-                        </select>
-                        <div class="format-options" id="formatOptions1">
-                            <label>
-                                <input type="checkbox" name="required1" checked> Required field
-                            </label>
-                            <label>
-                                <input type="checkbox" name="validate1"> Validate format
-                            </label>
-                        </div>
-                    </div>
-                    <div class="question-container">
-                        <h3>Question 2</h3>
-                        <input type="text" name="question2" placeholder="Enter your question">
-                        <select name="format2" class="format-select">
-                            <option value="">Select data format</option>
-                            <option value="text">Text</option>
-                            <option value="email">Email</option>
-                            <option value="phone">Phone Number</option>
-                            <option value="date">Date</option>
-                            <option value="number">Number</option>
-                            <option value="url">URL</option>
-                        </select>
-                        <div class="format-options" id="formatOptions2">
-                            <label>
-                                <input type="checkbox" name="required2"> Required field
-                            </label>
-                            <label>
-                                <input type="checkbox" name="validate2"> Validate format
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <button type="button">Add Another Question</button>
-            </div>
-
-            <button type="submit">Generate Code</button>
-        </form>
-
-        <div class="preview-section">
-            <h2>Integration Code</h2>
-            <div class="code-preview" id="codePreview">
-                <!-- Code will be generated here -->
-            </div>
-            <button onclick="copyCode()">Copy Code</button>
+        <div class="instructions">
+            <h2>Integration Instructions</h2>
+            <ol>
+                <li>Include our script in your HTML:
+                    <div class="code-preview">&lt;script src="https://your-domain.com/widget.js"&gt;&lt;/script&gt;</div>
+                </li>
+                <li>Initialize the widget with your API key:
+                    <div class="code-preview">const chatbot = new ChatbotWidget({
+    apiKey: 'YOUR_API_KEY',
+    position: 'bottom-right',
+    primaryColor: '#007bff',
+    title: 'Chat with AI',
+    placeholder: 'Type your message...'
+});</div>
+                </li>
+                <li>Customize the appearance and behavior using the available options:
+                    <div class="code-preview">// Available options
+{
+    apiKey: string,        // Your API key (required)
+    position: string,      // 'bottom-right' or 'bottom-left'
+    primaryColor: string,  // Any valid CSS color
+    title: string,        // Chat widget title
+    placeholder: string,  // Input placeholder text
+    width: number,       // Widget width in pixels
+    height: number      // Widget height in pixels
+}</div>
+                </li>
+            </ol>
         </div>
     </div>
 
-    <!-- Include the portal JavaScript -->
-    <script src="portal.js"></script>
+    <script>
+        let currentApiKey = '';
+
+        function generateApiKey() {
+            // Generate a random API key (in production, this would be a server call)
+            const key = 'key_' + Math.random().toString(36).substr(2, 20);
+            currentApiKey = key;
+            document.getElementById('apiKeyDisplay').textContent = key;
+        }
+
+        function copyApiKey() {
+            if (currentApiKey) {
+                navigator.clipboard.writeText(currentApiKey)
+                    .then(() => alert('API key copied to clipboard!'))
+                    .catch(err => console.error('Failed to copy:', err));
+            } else {
+                alert('Please generate an API key first');
+            }
+        }
+    </script>
 </body>
 </html> 
