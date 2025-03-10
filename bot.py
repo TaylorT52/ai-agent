@@ -9,6 +9,7 @@ from agent import MistralAgent
 PREFIX = "!"
 
 # Setup logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("discord")
 
 # Load the environment variables
@@ -22,10 +23,10 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 # Import the Mistral agent from the agent.py file
 agent = MistralAgent()
 
-
 # Get the token from the environment variables
 token = os.getenv("DISCORD_TOKEN")
 
+print("Starting bot...") 
 
 @bot.event
 async def on_ready():
@@ -35,6 +36,7 @@ async def on_ready():
 
     https://discordpy.readthedocs.io/en/latest/api.html#discord.on_ready
     """
+    print(f"Bot is ready! Logged in as {bot.user}")
     logger.info(f"{bot.user} has connected to Discord!")
 
 
@@ -73,6 +75,7 @@ async def ping(ctx, *, arg=None):
     else:
         await ctx.send(f"Pong! Your argument was {arg}")
 
+print("About to run bot...")  
 
 # Start the bot, connecting it to the gateway
 bot.run(token)
