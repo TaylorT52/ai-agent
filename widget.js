@@ -5,6 +5,7 @@ class ChatbotWidget {
             primaryColor: options.primaryColor || '#007bff',
             title: options.title || 'Chat with us',
             placeholder: options.placeholder || 'Type your message...',
+            apiUrl: options.apiUrl || 'http://localhost:5000/api/chat',
             ...options
         };
         
@@ -190,17 +191,41 @@ class ChatbotWidget {
         this.toggleButton.addEventListener('click', () => this.toggle());
         
         //handle message submission
-        this.form.addEventListener('submit', (e) => {
+        this.form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const message = this.input.value.trim();
             if (message) {
                 this.addMessage(message, 'user');
                 this.input.value = '';
                 
-                //API CALL HERE
-                setTimeout(() => {
-                    this.addMessage('Thank you for your message! This is a demo response.', 'bot');
-                }, 1000);
+                try {
+                    // Show typing indicator
+                    this.addMessage('Typing...', 'bot');
+                    
+                    // Make API call to backend
+                    const response = await fetch(this.options.apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ message })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    // Remove typing indicator
+                    this.messagesContainer.removeChild(this.messagesContainer.lastChild);
+                    
+                    // Add bot response
+                    this.addMessage(data.response, 'bot');
+                } catch (error) {
+                    // Remove typing indicator
+                    this.messagesContainer.removeChild(this.messagesContainer.lastChild);
+                    
+                    // Show error message
+                    this.addMessage('Sorry, I encountered an error. Please try again later.', 'bot');
+                    console.error('Error:', error);
+                }
             }
         });
     }
