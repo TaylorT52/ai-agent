@@ -59,15 +59,14 @@ app.post('/api/chat', async (req, res) => {
 
         // Send message to Discord with username prefix
         const formattedMessage = `[${username}]: ${message}`;
-        const sentMessage = await channel.send(formattedMessage);
+        await channel.send(formattedMessage);
         console.log('Message sent successfully');
 
-        // Wait for bot response
+        // Wait for next bot response in channel
         const botResponse = await new Promise((resolve) => {
             const filter = m => {
                 return m.author.bot && 
-                       m.author.id !== client.user.id && // Ignore our own messages
-                       m.reference?.messageId === sentMessage.id;
+                       m.author.id !== client.user.id; // Ignore our own messages
             };
             
             channel.awaitMessages({ filter, max: 1, time: 30000 })
