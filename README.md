@@ -7,6 +7,7 @@ A simple API that allows you to send messages to a Discord channel and receive b
 - Node.js installed on your system
 - A Discord bot token
 - A Discord server with a channel named `webform-bot`
+- PM2 (for production deployment)
 
 ## Setup
 
@@ -15,42 +16,56 @@ A simple API that allows you to send messages to a Discord channel and receive b
    ```bash
    npm install
    ```
-3. Create a `.env` file in the root directory with your Discord bot token:
+3. Create a `.env` file in the root directory:
    ```
    DISCORD_TOKEN=your_bot_token_here
    PORT=3001  # Optional, defaults to 3001
+   ALLOWED_ORIGINS=http://yourdomain.com,http://localhost:8000  # Comma-separated list of allowed origins, or * for all
+   NODE_ENV=production  # For production deployment
    ```
 
-## Running the Application
+## Development
 
-1. Start the API server:
+1. Start the development server (with auto-reload):
    ```bash
-   npm start
+   npm run dev
    ```
-   The server will start on port 3001 (or the port specified in your .env file).
 
-2. In a separate terminal, start the web server:
+## Production Deployment
+
+1. Install PM2 globally:
    ```bash
-   python3 -m http.server 8000
+   npm install -g pm2
    ```
 
-3. Open your browser and navigate to:
+2. Start the production server:
+   ```bash
+   npm run prod
    ```
-   http://localhost:8000/test.html
+
+3. Other PM2 commands:
+   ```bash
+   npm run stop     # Stop the server
+   npm run restart  # Restart the server
+   npm run logs     # View logs
    ```
 
-## Using the API
+4. To make PM2 start on system boot:
+   ```bash
+   pm2 startup
+   pm2 save
+   ```
 
-### Web Interface
+## Rate Limiting
 
-The web interface provides a simple form to:
-1. Enter your name
-2. Enter your message
-3. Send the message and receive bot responses
+The API includes rate limiting to prevent abuse:
+- 100 requests per IP address per 15 minutes
+- Message length limited to 2000 characters
+- Username length limited to 32 characters
 
-### API Endpoints
+## API Endpoints
 
-#### POST /api/chat
+### POST /api/chat
 Send a message to the Discord channel and receive a bot response.
 
 **Request Body:**
@@ -76,7 +91,7 @@ Send a message to the Discord channel and receive a bot response.
 }
 ```
 
-#### GET /health
+### GET /health
 Check the status of the API and bot connection.
 
 **Response:**
@@ -84,6 +99,7 @@ Check the status of the API and bot connection.
 {
     "status": "ok",
     "botConnected": true,
+    "uptime": 123456,
     "channels": [
         {
             "name": "channel-name",
@@ -92,6 +108,45 @@ Check the status of the API and bot connection.
         }
     ]
 }
+```
+
+## Security Considerations
+
+1. CORS is enabled and can be configured via the `ALLOWED_ORIGINS` environment variable
+2. Rate limiting is enabled to prevent abuse
+3. Input validation is implemented for message and username lengths
+4. Error handling is implemented to prevent server crashes
+5. The server automatically attempts to reconnect if the Discord connection is lost
+
+## Troubleshooting
+
+1. If you see "Bot is not connected":
+   - Check that your Discord bot token is correct
+   - Ensure the bot is online in Discord
+   - Check the logs with `npm run logs`
+
+2. If you see "webform-bot channel is not found":
+   - Create a text channel named exactly `webform-bot` in your Discord server
+   - Make sure the bot has access to the channel
+
+3. If you get rate limit errors:
+   - Wait for the rate limit window to reset (15 minutes)
+   - Consider increasing the rate limit in production if needed
+
+4. For production issues:
+   - Check the PM2 logs: `npm run logs`
+   - Monitor the process: `pm2 monit`
+   - Check system resources: `pm2 status`
+
+## Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| position | string | 'bottom-right' | Widget position ('bottom-right' or 'bottom-left') |
+| primaryColor | string | '#007bff' | Primary color for the widget theme |
+| title | string | 'Chat with us' | Title displayed in the widget header |
+| placeholder | string | 'Type your message...' | Placeholder text for the input field |
+| apiUrl | string | 'http://localhost:5000/api/chat' | Backend API URL for chat processing |
 ```
 
 ## How It Works
@@ -105,20 +160,6 @@ Check the status of the API and bot connection.
    - Wait up to 30 seconds for a bot response
    - Return "No response received" if no bot responds within that time
    - Ignore messages from the API bot itself
-
-## Troubleshooting
-
-1. If you see "Bot is not connected":
-   - Check that your Discord bot token is correct
-   - Ensure the bot is online in Discord
-
-2. If you see "webform-bot channel is not found":
-   - Create a text channel named exactly `webform-bot` in your Discord server
-   - Make sure the bot has access to the channel
-
-3. If you get "Cannot connect to server":
-   - Ensure both the API server and web server are running
-   - Check that you're using the correct ports
 ```
 
 ## Configuration Options
