@@ -5,7 +5,7 @@ class ChatbotWidget {
             primaryColor: options.primaryColor || '#007bff',
             title: options.title || 'Chat with us',
             placeholder: options.placeholder || 'Type your message...',
-            apiUrl: options.apiUrl || 'http://localhost:5000/api/chat',
+            apiUrl: options.apiUrl || 'http://localhost:3000/api/chat',
             ...options
         };
         
@@ -202,6 +202,7 @@ class ChatbotWidget {
                     // Show typing indicator
                     this.addMessage('Typing...', 'bot');
                     
+                    console.log('Making API call to:', this.options.apiUrl);
                     // Make API call to backend
                     const response = await fetch(this.options.apiUrl, {
                         method: 'POST',
@@ -212,9 +213,14 @@ class ChatbotWidget {
                     });
                     
                     const data = await response.json();
+                    console.log('Received response:', data);
                     
                     // Remove typing indicator
                     this.messagesContainer.removeChild(this.messagesContainer.lastChild);
+                    
+                    if (!response.ok) {
+                        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                    }
                     
                     // Add bot response
                     this.addMessage(data.response, 'bot');
@@ -223,8 +229,8 @@ class ChatbotWidget {
                     this.messagesContainer.removeChild(this.messagesContainer.lastChild);
                     
                     // Show error message
-                    this.addMessage('Sorry, I encountered an error. Please try again later.', 'bot');
-                    console.error('Error:', error);
+                    console.error('Error details:', error);
+                    this.addMessage(`Error: ${error.message}`, 'bot');
                 }
             }
         });

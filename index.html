@@ -26,12 +26,13 @@ const chatbot = new ChatbotWidget({
 
     <script src="widget.js"></script>
     <script>
-        //initialize the widget
+        // Initialize the widget with the correct API URL
         const chatbot = new ChatbotWidget({
             position: 'bottom-right',
             primaryColor: '#007bff',
-            title: 'Form Response',
-            placeholder: 'Type your message...'
+            title: 'Chat with AI',
+            placeholder: 'Type your message...',
+            apiUrl: 'http://localhost:3000/api/chat'
         });
     </script>
 </body>
