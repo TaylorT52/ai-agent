@@ -5,7 +5,6 @@ import logging
 from discord.ext import commands
 from dotenv import load_dotenv
 from agent import MistralAgent
-from user_manager import UserManager
 
 PREFIX = "!"
 

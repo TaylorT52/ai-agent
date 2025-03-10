@@ -2,16 +2,18 @@
   "name": "discord-api",
   "version": "1.0.0",
   "description": "Discord bot API for sending messages and receiving responses",
-  "main": "server.js",
+  "main": "prodserver/server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "prod": "pm2 start ecosystem.config.js --env production",
+    "start": "node prodserver/server.js",
+    "dev": "nodemon prodserver/server.js",
+    "prod": "cd prodserver && pm2 start ecosystem.config.cjs --env production",
     "stop": "pm2 stop discord-api",
     "restart": "pm2 restart discord-api",
     "logs": "pm2 logs discord-api",
-    "test": "node test-api.js"
+    "test": "node test-api.js",
+    "status": "node check-status.js",
+    "health": "node prodserver/check-prod.js"
   },
   "dependencies": {
     "body-parser": "^1.20.2",

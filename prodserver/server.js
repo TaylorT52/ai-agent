@@ -1,9 +1,14 @@
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const rateLimit = require('express-rate-limit');
-const { Client, GatewayIntentBits } = require('discord.js');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import rateLimit from 'express-rate-limit';
+import { Client, GatewayIntentBits } from 'discord.js';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Initialize environment variables
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -38,6 +43,9 @@ const client = new Client({
 // Store the webform-bot channel reference
 let webformBotChannel = null;
 
+// Message response handlers
+const messageHandlers = new Map();
+
 // Discord bot setup with detailed logging
 client.once('ready', () => {
     console.log(`Discord bot logged in as ${client.user.tag}`);
@@ -64,24 +72,47 @@ client.once('ready', () => {
 // Message handler for webform-bot channel
 client.on('messageCreate', async (message) => {
     // Only process messages from the webform-bot channel
-    if (message.channelId !== webformBotChannel?.id) return;
-    
-    // Ignore messages from our bot
-    if (message.author.id === client.user.id) return;
-    
-    // Print the message details
-    console.log('\nNew message in webform-bot channel:');
-    console.log('Author:', message.author.tag);
-    console.log('Content:', message.content);
-    console.log('Timestamp:', message.createdAt);
-    
-    // If it's a bot message, mark it as a response
-    if (message.author.bot) {
-        console.log('Type: Bot Response');
-    } else {
-        console.log('Type: User Message');
+    if (message.channelId !== webformBotChannel?.id) {
+        console.log('Ignoring message from different channel:', message.channel.name);
+        return;
     }
-    console.log('-------------------');
+    
+    // Print ALL message details regardless of source
+    console.log('\n=== New Message Details ===');
+    console.log('Channel:', message.channel.name);
+    console.log('Author:', message.author.tag);
+    console.log('Author ID:', message.author.id);
+    console.log('Bot?:', message.author.bot);
+    console.log('Content:', message.content);
+    console.log('Message ID:', message.id);
+    console.log('Reference:', message.reference);
+    console.log('Timestamp:', message.createdAt);
+    console.log('========================');
+
+    // Ignore messages from our bot
+    if (message.author.id === client.user.id) {
+        console.log('This is our own message - ignoring');
+        return;
+    }
+    
+    // Handle both user messages and bot responses
+    if (message.author.bot) {
+        console.log('Processing bot response');
+        console.log('Active handlers:', messageHandlers.size);
+        // Notify all handlers of the new bot message
+        messageHandlers.forEach((handler, key) => {
+            console.log('Processing handler:', key);
+            handler(message);
+        });
+    } else {
+        console.log('Processing user message:', message.content);
+        // Here we could add logic to handle user messages directly
+        // For now, we'll just log them
+        messageHandlers.forEach((handler, key) => {
+            console.log('Notifying handler of user message:', key);
+            handler(message);
+        });
+    }
 });
 
 // Enhanced error handling for Discord client
@@ -160,33 +191,56 @@ app.post('/api/chat', async (req, res) => {
             });
         }
 
-        console.log(`Sending message from ${username} to webform-bot channel`);
+        console.log(`\nSending message from ${username} to webform-bot channel`);
 
         // Send message to Discord with username prefix
         const formattedMessage = `[${username}]: ${message}`;
-        await webformBotChannel.send(formattedMessage);
-        console.log('Message sent successfully');
+        const sentMessage = await webformBotChannel.send(formattedMessage);
+        console.log('Message sent successfully, ID:', sentMessage.id);
 
-        // Wait for next bot response in channel
+        // Create a unique handler ID for this request
+        const handlerId = Date.now().toString();
+        console.log('Created handler:', handlerId);
+
+        // Wait for next response in channel (bot or user)
         const botResponse = await new Promise((resolve) => {
-            const filter = m => {
-                return m.author.bot && 
-                       m.author.id !== client.user.id; // Ignore our own messages
-            };
-            
-            webformBotChannel.awaitMessages({ filter, max: 1, time: 30000 })
-                .then(collected => {
-                    const response = collected.first()?.content;
-                    console.log('Bot response received:', response);
-                    resolve(response || 'No response received');
-                })
-                .catch((error) => {
-                    console.error('Error waiting for bot response:', error);
-                    resolve('No response received');
+            let timeoutId;
+
+            // Set up message handler for both bot and user messages
+            const handler = (message) => {
+                console.log('Handler received message from:', message.author.tag);
+                console.log('Message content:', message.content);
+                clearTimeout(timeoutId);
+                messageHandlers.delete(handlerId);
+                resolve({
+                    content: message.content,
+                    author: message.author.tag,
+                    isBot: message.author.bot
                 });
+            };
+
+            // Add handler to the map
+            messageHandlers.set(handlerId, handler);
+            console.log('Added handler to map. Active handlers:', messageHandlers.size);
+
+            // Set timeout to remove handler
+            timeoutId = setTimeout(() => {
+                console.log('Handler timed out:', handlerId);
+                messageHandlers.delete(handlerId);
+                resolve({
+                    content: 'No response received within 30 seconds',
+                    author: null,
+                    isBot: null
+                });
+            }, 30000);
         });
 
-        res.json({ response: botResponse });
+        console.log('Received response:', botResponse);
+        res.json({ 
+            response: botResponse.content,
+            author: botResponse.author,
+            isBot: botResponse.isBot
+        });
     } catch (error) {
         console.error('Error in /api/chat:', error);
         res.status(500).json({ 
