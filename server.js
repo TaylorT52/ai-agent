@@ -37,17 +37,53 @@ const client = new Client({
     ]
 });
 
+// Store the webform-bot channel reference
+let webformBotChannel = null;
+
 // Discord bot setup with detailed logging
 client.once('ready', () => {
     console.log(`Discord bot logged in as ${client.user.tag}`);
     console.log('Bot ID:', client.user.id);
     console.log('Bot is ready and connected to Discord!');
     
+    // Find and store the webform-bot channel
+    webformBotChannel = client.channels.cache.find(ch => ch.name === 'webform-bot');
+    
+    if (webformBotChannel) {
+        console.log('Found webform-bot channel:', webformBotChannel.id);
+        console.log('Message listener is active for channel:', webformBotChannel.name);
+    } else {
+        console.log('Warning: webform-bot channel not found!');
+    }
+    
     // Log available channels for debugging
     console.log('\nAvailable channels:');
     client.channels.cache.forEach(channel => {
         console.log(`- ${channel.name} (${channel.id})`);
     });
+});
+
+// Message handler for webform-bot channel
+client.on('messageCreate', async (message) => {
+    // Only process messages from the webform-bot channel
+    if (message.channelId !== webformBotChannel?.id) return;
+    
+    // Ignore messages from our bot
+    if (message.author.id === client.user.id) return;
+    
+    // Print the message details
+    console.log('\nNew message in webform-bot channel:');
+    console.log('Author:', message.author.tag);
+    console.log('Content:', message.content);
+    console.log('Timestamp:', message.createdAt);
+    
+    // If it's a bot message, mark it as a response
+    if (message.author.bot) {
+        console.log('Type: Bot Response');
+    } else {
+        console.log('Type: User Message');
+    }
+    console.log('-------------------');
 });
 
 // Enhanced error handling for Discord client
@@ -118,11 +154,8 @@ app.post('/api/chat', async (req, res) => {
             });
         }
 
-        // Find the webform-bot channel
-        const channel = client.channels.cache.find(ch => ch.name === 'webform-bot');
-        
-        if (!channel) {
-            console.log('Available channels:', client.channels.cache.map(ch => ch.name));
+        // Check if we have the channel reference
+        if (!webformBotChannel) {
             return res.status(404).json({ 
                 error: 'Channel not found',
                 details: 'The webform-bot channel does not exist. Please create a channel named "webform-bot".'
@@ -133,7 +166,7 @@ app.post('/api/chat', async (req, res) => {
 
         // Send message to Discord with username prefix
         const formattedMessage = `[${username}]: ${message}`;
-        await channel.send(formattedMessage);
+        await webformBotChannel.send(formattedMessage);
         console.log('Message sent successfully');
 
         // Wait for next bot response in channel
@@ -143,7 +176,7 @@ app.post('/api/chat', async (req, res) => {
                        m.author.id !== client.user.id; // Ignore our own messages
             };
             
-            channel.awaitMessages({ filter, max: 1, time: 30000 })
+            webformBotChannel.awaitMessages({ filter, max: 1, time: 30000 })
                 .then(collected => {
                     const response = collected.first()?.content;
                     console.log('Bot response received:', response);
@@ -173,6 +206,10 @@ app.get('/health', async (req, res) => {
         uptime: process.uptime(),
         botTag: client.user?.tag,
         botId: client.user?.id,
+        webformBotChannel: webformBotChannel ? {
+            id: webformBotChannel.id,
+            name: webformBotChannel.name
+        } : null,
         channels: []
     };
 

@@ -5,6 +5,7 @@ import logging
 from discord.ext import commands
 from dotenv import load_dotenv
 from agent import MistralAgent
+from user_manager import UserManager
 
 PREFIX = "!"
 
@@ -23,6 +24,8 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 # Import the Mistral agent from the agent.py file
 agent = MistralAgent()
 
+# Initialize the user manager
+user_manager = UserManager()
 
 # Get the token from the environment variables
 token = os.getenv("DISCORD_TOKEN")
