@@ -36,31 +36,40 @@ client.login(process.env.DISCORD_TOKEN);
 // API Routes
 app.post('/api/chat', async (req, res) => {
     try {
-        const { message } = req.body;
+        const { message, username } = req.body;
 
-        if (!message) {
-            return res.status(400).json({ error: 'Message is required' });
-        }
-
-        // Get the first text channel from the first available guild
-        const channel = client.channels.cache.find(channel => channel.type === 0); // 0 is GUILD_TEXT
-        
-        if (!channel) {
-            return res.status(500).json({ 
-                error: 'No Discord channel available',
-                details: 'Bot needs to be added to a server with a text channel'
+        if (!message || !username) {
+            return res.status(400).json({ 
+                error: 'Missing required fields',
+                details: 'Message and username are required'
             });
         }
 
-        console.log(`Sending message to channel: ${channel.name} (${channel.id})`);
+        // Find the webform-bot channel
+        const channel = client.channels.cache.find(ch => ch.name === 'webform-bot');
+        
+        if (!channel) {
+            return res.status(404).json({ 
+                error: 'Channel not found',
+                details: 'The webform-bot channel does not exist'
+            });
+        }
 
-        // Send message to Discord
-        const sentMessage = await channel.send(message);
+        console.log(`Sending message from ${username} to webform-bot channel`);
+
+        // Send message to Discord with username prefix
+        const formattedMessage = `[${username}]: ${message}`;
+        const sentMessage = await channel.send(formattedMessage);
         console.log('Message sent successfully');
 
         // Wait for bot response
         const botResponse = await new Promise((resolve) => {
-            const filter = m => m.author.bot && m.reference?.messageId === sentMessage.id;
+            const filter = m => {
+                return m.author.bot && 
+                       m.author.id !== client.user.id && // Ignore our own messages
+                       m.reference?.messageId === sentMessage.id;
+            };
+            
             channel.awaitMessages({ filter, max: 1, time: 30000 })
                 .then(collected => {
                     const response = collected.first()?.content;
