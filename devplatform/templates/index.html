@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord Survey Platform</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
     <div class="container">
         <header>
             <h1>Developer Platform</h1>
-            <p>Create custom surveys that will be sent via Discord DMs</p>
+            <p>Create custom, embeddable webforms that will be sent via Discord DMs</p>
         </header>
 
         <section id="apiKeySection" class="section">
@@ -42,16 +44,14 @@
         <section id="naturalLanguageSection" class="section">
             <h2>Natural Language Question Generation</h2>
             <p>Describe your survey questions in natural language and we'll convert them to structured questions.</p>
-            
+
             <div class="natural-language-container">
-                <textarea 
-                    id="naturalLanguageInput" 
+                <textarea id="naturalLanguageInput"
                     placeholder="Example: Create a customer feedback survey with 3 questions. First ask about their satisfaction level from 1-10. Then ask if they would recommend our service to others. Finally, ask them to choose their favorite feature from: Dashboard, Analytics, Reports, and Support."
-                    rows="6"
-                ></textarea>
+                    rows="6"></textarea>
                 <button onclick="generateQuestionsFromDescription()" class="generate-btn">Generate Questions</button>
             </div>
-            
+
             <div id="generatedQuestions" class="generated-questions hidden">
                 <h3>Generated Questions</h3>
                 <div id="questionsPreview" class="questions-preview"></div>
@@ -65,18 +65,33 @@
             <div id="questions">
                 <!-- Questions will be added here -->
             </div>
-            
+
             <button onclick="addQuestion()" class="add-question">Add Question</button>
             <button onclick="saveQuestions()" class="save-questions">Save Questions</button>
         </section>
 
-        <section id="embedSection" class="section hidden">
-            <h2>Generated Integration</h2>
-            <p>Copy this code to embed the Discord survey widget:</p>
+        <section id="embedSection" class="section">
+            <h2>Discord Integration</h2>
+            <div class="guide-section">
+                <h3>Integration Instructions</h3>
+                <ol>
+                    <li>Copy the code below and paste it into your website's HTML where you want the survey widget to
+                        appear.</li>
+                    <li>The widget will automatically connect to our Discord bot service - no setup required!</li>
+                    <li>When users enter their Discord ID and click "Start Survey", they will receive the survey
+                        questions via Discord DM from our bot.</li>
+                </ol>
+                <div class="note">
+                    <strong>Note:</strong> Users must have DMs enabled to receive messages from our bot. Our bot will
+                    automatically handle all survey interactions.
+                </div>
+            </div>
+
             <div class="code-container">
-                <pre><code id="embedCode"></code></pre>
+                <pre id="embedCode"></pre>
                 <button onclick="copyEmbedCode()">Copy Code</button>
             </div>
+
             <div class="preview-container">
                 <h3>Live Preview</h3>
                 <div id="previewWidget"></div>
@@ -85,66 +100,8 @@
 
         <section id="integrationGuide" class="section">
             <h2>Integration Guide</h2>
-            
-            <div class="guide-section">
-                <h3>1. Enable Developer Mode in Discord</h3>
-                <ol>
-                    <li>Open Discord</li>
-                    <li>Go to User Settings (⚙️ next to your username)</li>
-                    <li>Scroll down to "App Settings" and click on "Advanced"</li>
-                    <li>Enable "Developer Mode"</li>
-                </ol>
-            </div>
-
-            <div class="guide-section">
-                <h3>2. Finding User IDs</h3>
-                <p>To get a Discord User ID:</p>
-                <ol>
-                    <li>Right-click on a user's name or profile picture</li>
-                    <li>Click "Copy ID" at the bottom of the menu</li>
-                    <li>The ID will be copied to your clipboard</li>
-                </ol>
-                <div class="note">
-                    User IDs are typically 17-20 digit numbers. Example: 756724128588759231
-                </div>
-            </div>
-
-            <div class="guide-section">
-                <h3>3. Setting Up the Bot</h3>
-                <ol>
-                    <li>Generate your API key above</li>
-                    <li>Create your survey questions</li>
-                    <li>Invite the bot to your Discord server</li>
-                    <li>Make sure users have DMs enabled for the server</li>
-                </ol>
-                <div class="note">
-                    The bot will automatically handle survey responses through Discord DMs
-                </div>
-            </div>
-
-            <div class="guide-section">
-                <h3>4. Testing</h3>
-                <p>Before deploying to production:</p>
-                <ol>
-                    <li>Test the survey with your own Discord ID</li>
-                    <li>Verify that you receive the questions in your DMs</li>
-                    <li>Check that the response format works as expected</li>
-                    <li>Test with different question types and formats</li>
-                </ol>
-            </div>
-
-            <div class="guide-section">
-                <h3>5. Troubleshooting</h3>
-                <ul>
-                    <li><strong>Not receiving DMs?</strong> Make sure you have DMs enabled for the server</li>
-                    <li><strong>Invalid User ID?</strong> Double-check that Developer Mode is enabled and you're copying the correct ID</li>
-                    <li><strong>Bot not responding?</strong> Verify the bot has proper permissions in your server</li>
-                    <li><strong>Other issues?</strong> Check the server logs for any error messages</li>
-                </ul>
-            </div>
-        </section>
-    </div>
-
+            <h3>TODO: need info about getting survey responses back</h3>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
-</html> 
+
+</html>

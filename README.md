@@ -148,6 +148,110 @@ Check the status of the production server and bot connection.
 }
 ```
 
+### GET /api/completed-surveys
+Retrieve all completed surveys.
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": [
+        {
+            "userId": "123456789",
+            "questions": [
+                {
+                    "question": "What is your favorite color?",
+                    "format": "text"
+                }
+            ],
+            "answers": [
+                {
+                    "question": "What is your favorite color?",
+                    "answer": "Blue",
+                    "format": "text",
+                    "timestamp": "2024-03-21T10:30:00Z"
+                }
+            ],
+            "completedAt": "2024-03-21T10:30:00Z"
+        }
+    ]
+}
+```
+
+## Survey Response Webhooks
+
+When starting a survey, you can provide a webhook URL to receive the survey results immediately upon completion.
+
+### Setting up the Webhook
+
+When making the initial survey request, include a `webhookUrl` parameter:
+
+```json
+{
+    "userId": "Discord user ID",
+    "isStart": true,
+    "webhookUrl": "https://your-server.com/webhook",
+    "questions": [
+        {
+            "question": "What is your favorite color?",
+            "format": "text"
+        }
+    ]
+}
+```
+
+### Webhook Response Format
+
+When a survey is completed, your webhook URL will receive a POST request with the following data:
+
+```json
+{
+    "success": true,
+    "data": {
+        "userId": "Discord user ID",
+        "questions": [
+            {
+                "question": "What is your favorite color?",
+                "format": "text"
+            }
+        ],
+        "answers": [
+            {
+                "question": "What is your favorite color?",
+                "answer": "Blue",
+                "format": "text",
+                "timestamp": "2024-03-21T10:30:00Z"
+            }
+        ],
+        "completedAt": "2024-03-21T10:30:00Z"
+    }
+}
+```
+
+### Example Webhook Server
+
+Here's a simple example of how to receive webhook data:
+
+```javascript
+// Using Express.js
+app.post('/webhook', (req, res) => {
+    const surveyData = req.body;
+    console.log('Received survey response:', surveyData);
+    
+    // Process the survey data as needed
+    // Store in database, send notifications, etc.
+    
+    res.json({ received: true });
+});
+```
+
+### Security Considerations
+
+1. Your webhook endpoint should be HTTPS
+2. Consider implementing authentication for your webhook endpoint
+3. Validate the incoming data before processing
+4. Handle webhook failures gracefully
+
 ## Security Considerations
 
 1. CORS is enabled and can be configured via the `ALLOWED_ORIGINS` environment variable
@@ -173,7 +277,6 @@ The platform supports multiple question formats:
 4. Multiple Choice
    - Lettered options (A, B, C, D)
    - Must select one of the provided options
-```
 
 ## Configuration Options
 
@@ -184,5 +287,30 @@ The platform supports multiple question formats:
 | title | string | 'Chat with us' | Title displayed in the widget header |
 | placeholder | string | 'Type your message...' | Placeholder text for the input field |
 | apiUrl | string | 'http://localhost:5000/api/chat' | Backend API URL for chat processing |
+
+## Survey Responses
+
+Survey responses are automatically saved as CSV files in the `completed_surveys` directory when a user completes a survey. Each file is named using the format: `survey_USER_ID_TIMESTAMP.csv`
+
+### CSV Format
+The CSV files contain the following columns:
+- Question: The survey question
+- Answer: The user's response
+- Format: The question format (text, number, yesno, or multiple)
+- Timestamp: When the answer was provided
+
+### File Location
+- CSV files are stored in the `completed_surveys` directory
+- Each survey gets its own file
+- Files are named with pattern: `survey_USER_ID_TIMESTAMP.csv`
+- Timestamps use ISO format with dashes for compatibility
+
+### Example CSV Content
+```csv
+"Question","Answer","Format","Timestamp"
+"What is your satisfaction level?","8","number","2024-03-21T10:30:00Z"
+"Would you recommend our service?","yes","yesno","2024-03-21T10:30:15Z"
+"What is your favorite feature?","Analytics","multiple","2024-03-21T10:30:30Z"
+```
 
 

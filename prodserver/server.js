@@ -6,6 +6,8 @@ import { Client, GatewayIntentBits } from 'discord.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import fs from 'fs';
+import path from 'path';
 import {
     generateWelcomeMessage,
     generateInvalidFormatMessage,
@@ -20,8 +22,11 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Store active surveys and their state
+// Store active surveys and their state with webhook URLs
 const activeSurveys = new Map();
+
+// Store widget-webhook mappings
+const widgetWebhooks = new Map();
 
 // Rate limiting
 const limiter = rateLimit({
@@ -72,6 +77,42 @@ let webformBotChannel = null;
 
 // Message response handlers
 const messageHandlers = new Map();
+
+// Create surveys directory if it doesn't exist
+const surveysDir = path.join(process.cwd(), 'completed_surveys');
+if (!fs.existsSync(surveysDir)){
+    fs.mkdirSync(surveysDir, { recursive: true });
+}
+
+// Function to save survey to CSV
+function saveSurveyToCSV(survey) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = path.join(surveysDir, `survey_${survey.userId}_${timestamp}.csv`);
+    
+    // Create CSV header and data
+    const headers = ['Question', 'Answer', 'Format', 'Timestamp'];
+    const csvRows = [headers];
+    
+    // Add each answer as a row
+    survey.answers.forEach(answer => {
+        csvRows.push([
+            answer.question.replace(/"/g, '""'), // Escape quotes in questions
+            answer.answer.replace(/"/g, '""'),   // Escape quotes in answers
+            answer.format,
+            answer.timestamp
+        ]);
+    });
+    
+    // Convert to CSV format
+    const csvContent = csvRows
+        .map(row => row.map(cell => `"${cell}"`).join(','))
+        .join('\n');
+    
+    // Write to file
+    fs.writeFileSync(filename, csvContent, 'utf-8');
+    console.log(`Survey results saved to: ${filename}`);
+    return filename;
+}
 
 // Discord bot setup with detailed logging
 client.once('ready', () => {
@@ -195,9 +236,34 @@ client.on('messageCreate', async (message) => {
             // Check if survey is complete
             if (survey.currentQuestion >= survey.questions.length) {
                 const completionMessage = await generateCompletionMessage(survey.answers);
+                
+                // Prepare survey data
+                const surveyData = {
+                    userId: message.author.id,
+                    questions: survey.questions,
+                    answers: survey.answers.map(answer => ({
+                        ...answer,
+                        timestamp: answer.timestamp || new Date().toISOString()
+                    }))
+                };
+
+                // Send webhook if URL was provided
+                if (survey.webhookUrl) {
+                    try {
+                        const webhookSuccess = await sendWebhook(survey.webhookUrl, surveyData);
+                        if (!webhookSuccess) {
+                            console.error('Failed to deliver webhook for user:', message.author.id);
+                            // Store failed webhook for potential retry
+                            // You could implement a retry queue here if needed
+                        }
+                    } catch (error) {
+                        console.error('Error in webhook delivery:', error);
+                    }
+                }
+                
                 await message.reply(completionMessage);
                 console.log('Survey completed for user:', message.author.id);
-                console.log('Answers:', survey.answers);
+                console.log('Answers:', surveyData.answers);
                 activeSurveys.delete(message.author.id);
                 return;
             }
@@ -472,15 +538,60 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// Update DM endpoint
+// Function to send webhook with retry logic
+async function sendWebhook(webhookUrl, data) {
+    const maxRetries = 3;
+    const retryDelay = 1000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Discord-Widget-Bot'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Webhook failed with status ${response.status}`);
+            }
+
+            console.log(`Successfully sent webhook to ${webhookUrl}`, {
+                attempt,
+                status: response.status,
+                dataType: data.data.type
+            });
+            return true;
+        } catch (error) {
+            console.error(`Webhook attempt ${attempt} failed:`, error);
+            if (attempt === maxRetries) {
+                console.error('Max retries reached for webhook:', webhookUrl);
+                return false;
+            }
+            await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+        }
+    }
+}
+
+// Update DM endpoint to accept webhookUrl
 app.post('/api/dm', async (req, res) => {
     try {
-        const { userId, message, isStart, questions, format, options } = req.body;
+        const { userId, message, isStart, questions, format, options, webhookUrl } = req.body;
 
         if (!userId) {
             return res.status(400).json({ 
                 error: 'Missing required fields',
                 details: 'User ID is required'
+            });
+        }
+
+        // Validate webhook URL if provided
+        if (webhookUrl && !webhookUrl.startsWith('http')) {
+            return res.status(400).json({
+                error: 'Invalid webhook URL',
+                details: 'Webhook URL must start with http:// or https://'
             });
         }
 
@@ -511,11 +622,12 @@ app.post('/api/dm', async (req, res) => {
                     });
                 }
 
-                // Initialize new survey
+                // Initialize new survey with webhook URL if provided
                 activeSurveys.set(userId, {
                     questions: questions,
                     currentQuestion: 0,
-                    answers: []
+                    answers: [],
+                    webhookUrl: webhookUrl // Store webhook URL with survey data
                 });
                 
                 try {
@@ -559,6 +671,69 @@ app.post('/api/dm', async (req, res) => {
     }
 });
 
+// Add endpoint to retrieve survey responses
+app.get('/api/survey-responses/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // Get survey data for the user
+        const surveyData = activeSurveys.get(userId);
+        
+        if (!surveyData) {
+            return res.status(404).json({
+                error: 'No survey data found',
+                details: 'No active or completed survey found for this user'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                questions: surveyData.questions,
+                currentQuestion: surveyData.currentQuestion,
+                answers: surveyData.answers,
+                isComplete: surveyData.currentQuestion >= surveyData.questions.length
+            }
+        });
+    } catch (error) {
+        console.error('Error retrieving survey responses:', error);
+        res.status(500).json({
+            error: 'Server error',
+            details: error.message
+        });
+    }
+});
+
+// Add endpoint to retrieve all completed surveys
+app.get('/api/completed-surveys', async (req, res) => {
+    try {
+        const completedSurveys = [];
+        
+        // Convert Map entries to array and filter completed surveys
+        for (const [userId, survey] of activeSurveys.entries()) {
+            if (survey.currentQuestion >= survey.questions.length) {
+                completedSurveys.push({
+                    userId,
+                    questions: survey.questions,
+                    answers: survey.answers,
+                    completedAt: survey.answers[survey.answers.length - 1]?.timestamp
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            data: completedSurveys
+        });
+    } catch (error) {
+        console.error('Error retrieving completed surveys:', error);
+        res.status(500).json({
+            error: 'Server error',
+            details: error.message
+        });
+    }
+});
+
 // Health check endpoint
 app.get('/health', async (req, res) => {
     const status = {
@@ -597,6 +772,77 @@ app.use((err, req, res, next) => {
         error: 'Internal server error',
         details: 'An unexpected error occurred'
     });
+});
+
+// Add endpoint to register widget webhook
+app.post('/api/register-widget', async (req, res) => {
+    try {
+        const { guildId, channelId, webhookUrl } = req.body;
+
+        if (!guildId || !channelId || !webhookUrl) {
+            return res.status(400).json({
+                error: 'Missing required fields',
+                details: 'Guild ID, channel ID, and webhook URL are required'
+            });
+        }
+
+        // Validate webhook URL
+        if (!webhookUrl.startsWith('https://')) {
+            return res.status(400).json({
+                error: 'Invalid webhook URL',
+                details: 'Webhook URL must use HTTPS'
+            });
+        }
+
+        // Store the webhook URL for this widget
+        const widgetKey = `${guildId}:${channelId}`;
+        widgetWebhooks.set(widgetKey, webhookUrl);
+
+        res.json({
+            success: true,
+            message: 'Widget webhook registered successfully'
+        });
+    } catch (error) {
+        console.error('Error registering widget webhook:', error);
+        res.status(500).json({
+            error: 'Server error',
+            details: error.message
+        });
+    }
+});
+
+// Modify messageCreate event to handle widget interactions
+client.on('messageCreate', async (message) => {
+    // Skip bot messages
+    if (message.author.bot) return;
+
+    // Check if this is from a widget channel
+    const widgetKey = `${message.guildId}:${message.channelId}`;
+    const webhookUrl = widgetWebhooks.get(widgetKey);
+
+    if (webhookUrl) {
+        try {
+            // Prepare interaction data
+            const interactionData = {
+                success: true,
+                data: {
+                    type: 'widget_interaction',
+                    userId: message.author.id,
+                    username: message.author.username,
+                    content: message.content,
+                    timestamp: message.createdAt.toISOString(),
+                    messageId: message.id,
+                    channelId: message.channelId,
+                    guildId: message.guildId
+                }
+            };
+
+            // Send to webhook
+            await sendWebhook(webhookUrl, interactionData);
+        } catch (error) {
+            console.error('Error sending widget interaction to webhook:', error);
+        }
+    }
 });
 
 // Start server

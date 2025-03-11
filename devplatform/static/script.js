@@ -164,7 +164,7 @@ function addQuestionToUI(question, index) {
         </div>
     `;
     document.getElementById('questions').appendChild(container);
-    generateEmbedCode();
+    updatePreview();
 }
 
 function updateQuestion(index, field, value) {
@@ -178,7 +178,7 @@ function updateQuestion(index, field, value) {
         questions[index].options = questions[index].options || [];
         addQuestionToUI(questions[index], index);
     }
-    generateEmbedCode();
+    updatePreview();
 }
 
 function updateOptions(index, value) {
@@ -186,14 +186,14 @@ function updateOptions(index, value) {
         questions[index] = { format: 'multiple' };
     }
     questions[index].options = value.split(',').map(opt => opt.trim()).filter(opt => opt);
-    generateEmbedCode();
+    updatePreview();
 }
 
 function removeQuestion(index) {
     questions.splice(index, 1);
     document.getElementById('questions').innerHTML = '';
     questions.forEach((q, i) => addQuestionToUI(q, i));
-    generateEmbedCode();
+    updatePreview();
 }
 
 async function saveQuestions() {
@@ -226,31 +226,10 @@ async function saveQuestions() {
         }
 
         alert('Questions saved successfully!');
-        generateEmbedCode();
+        updatePreview();
     } catch (error) {
         console.error('Error saving questions:', error);
         alert(error.message || 'Failed to save questions. Please try again.');
-    }
-}
-
-function generateEmbedCode() {
-    if (!currentApiKey || !questions.length) {
-        document.getElementById('embedCode').textContent = 'Please generate an API key and add questions.';
-        document.getElementById('previewWidget').innerHTML = '';
-        return;
-    }
-
-    const generatedCode = generateDiscordCode();
-    document.getElementById('embedCode').textContent = generatedCode;
-    
-    // Update the preview widget with the actual widget
-    const previewWidget = document.getElementById('previewWidget');
-    previewWidget.innerHTML = generatedCode;
-
-    // Initialize the preview widget
-    const previewUserId = document.getElementById('discord-user-id');
-    if (previewUserId) {
-        previewUserId.value = 'PREVIEW_USER_ID';
     }
 }
 
@@ -260,44 +239,92 @@ function generateDiscordCode() {
     <div id="discord-survey" style="flex: 1;">
         <style>
             .discord-survey {
-                max-width: 400px;
-                padding: 20px;
-                background: #fff;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                max-width: 500px;
+                padding: 25px;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
                 margin: 0 auto;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }
+
+            .discord-survey h3 {
+                margin: 0;
+                color: #2c3e50;
+                font-size: 1.5em;
+                text-align: center;
+            }
+
+            .discord-survey p {
+                color: #4a5568;
+                margin: 10px 0;
+                text-align: center;
+            }
+
+            .discord-survey .logo {
+                text-align: center;
+                margin-bottom: 15px;
+            }
+
+            .discord-survey .logo img {
+                width: 40px;
+                height: 40px;
+            }
+
             .discord-survey input {
                 width: 100%;
-                padding: 8px;
+                padding: 12px;
                 margin: 10px 0;
-                border: 1px solid #ddd;
-                border-radius: 4px;
+                border: 2px solid #e1e4e8;
+                border-radius: 8px;
+                font-size: 1em;
+                box-sizing: border-box;
+                transition: all 0.2s ease;
             }
+
+            .discord-survey input:focus {
+                border-color: #7289da;
+                box-shadow: 0 0 0 3px rgba(114, 137, 218, 0.2);
+                outline: none;
+            }
+
             .discord-survey button {
                 background: #7289da;
                 color: white;
                 border: none;
-                padding: 10px 20px;
-                border-radius: 4px;
+                padding: 12px;
+                border-radius: 8px;
                 cursor: pointer;
                 width: 100%;
+                font-size: 1em;
+                font-weight: 500;
+                transition: all 0.2s ease;
             }
+
             .discord-survey button:hover {
-                background: #5b73c7;
+                background: #5865f2;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             }
+
             .discord-survey .error {
                 color: #dc3545;
                 font-size: 14px;
                 margin-top: 5px;
+                text-align: center;
             }
+
             .discord-survey .success {
                 color: #28a745;
                 font-size: 14px;
                 margin-top: 5px;
+                text-align: center;
             }
         </style>
         <div class="discord-survey">
+            <div class="logo">
+                <img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" alt="Discord Logo">
+            </div>
             <h3>Discord Survey</h3>
             <p>Enter your Discord User ID to receive the survey:</p>
             <input type="text" id="discord-user-id" placeholder="Discord User ID">
@@ -351,12 +378,61 @@ function generateDiscordCode() {
 </script>`;
 }
 
+function generateEmbedCode() {
+    const embedCode = generateDiscordCode();
+    document.getElementById('embedCode').textContent = embedCode;
+    
+    // Update the live preview
+    const previewWidget = document.getElementById('previewWidget');
+    if (previewWidget) {
+        previewWidget.innerHTML = embedCode;
+    }
+}
+
 function copyEmbedCode() {
-    const code = document.getElementById('embedCode').textContent;
-    navigator.clipboard.writeText(code).then(() => {
-        alert('Code copied to clipboard!');
-    }).catch(err => {
-        console.error('Failed to copy code:', err);
-        alert('Failed to copy code. Please copy it manually.');
-    });
+    const embedCode = document.getElementById('embedCode');
+    const textArea = document.createElement('textarea');
+    textArea.value = embedCode.textContent;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    
+    const copyButton = document.querySelector('.code-container button');
+    const originalText = copyButton.textContent;
+    copyButton.textContent = 'Copied!';
+    setTimeout(() => {
+        copyButton.textContent = originalText;
+    }, 2000);
+}
+
+// Update the preview whenever questions are modified
+function updatePreview() {
+    generateEmbedCode();
+}
+
+// Add preview update calls to existing functions
+function addQuestionToUI(question) {
+    // ... existing code ...
+    updatePreview();
+}
+
+function updateQuestion(index) {
+    // ... existing code ...
+    updatePreview();
+}
+
+function updateOptions(index) {
+    // ... existing code ...
+    updatePreview();
+}
+
+function removeQuestion(index) {
+    // ... existing code ...
+    updatePreview();
+}
+
+function saveQuestions() {
+    // ... existing code ...
+    updatePreview();
 } 
