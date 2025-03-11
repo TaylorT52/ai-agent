@@ -13,6 +13,9 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
+// Store active surveys and their state
+const activeSurveys = new Map();
+
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -115,6 +118,150 @@ client.on('messageCreate', async (message) => {
         });
     }
 });
+
+// Add message handler for DMs
+client.on('messageCreate', async (message) => {
+    // Only process DMs from users (not bots)
+    if (!message.guild && !message.author.bot) {
+        console.log('\n=== New DM Message ===');
+        console.log('From:', message.author.tag);
+        console.log('Content:', message.content);
+        
+        // Check if user has an active survey
+        const survey = activeSurveys.get(message.author.id);
+        if (!survey) {
+            console.log('No active survey for user');
+            return;
+        }
+
+        // Get current question and validate response
+        const currentQuestion = survey.questions[survey.currentQuestion];
+        const response = message.content.trim();
+        const validationResult = validateResponse(response, currentQuestion.format, currentQuestion.options, currentQuestion.question.toLowerCase());
+        
+        if (!validationResult.isValid) {
+            // Show the error message and question again
+            message.reply(`${validationResult.error}\n\nQuestion: ${currentQuestion.question}`);
+            return;
+        }
+
+        // Store the answer with timestamp
+        survey.answers.push({
+            question: currentQuestion.question,
+            answer: response,
+            format: currentQuestion.format,
+            timestamp: new Date().toISOString()
+        });
+
+        // Move to next question
+        survey.currentQuestion++;
+
+        // Check if survey is complete
+        if (survey.currentQuestion >= survey.questions.length) {
+            const summary = survey.answers.map((a, i) => 
+                `Q${i + 1}: ${a.question}\nA: ${a.answer}`
+            ).join('\n\n');
+            
+            message.reply(`Thank you for completing the survey! Here's a summary of your responses:\n\n${summary}`);
+            console.log('Survey completed for user:', message.author.id);
+            console.log('Answers:', survey.answers);
+            activeSurveys.delete(message.author.id);
+            return;
+        }
+
+        // Send next question with clear format instructions
+        const nextQuestion = survey.questions[survey.currentQuestion];
+        const formatInstructions = getFormatInstructions(nextQuestion.format, nextQuestion.options, nextQuestion.question.toLowerCase());
+        message.reply(`Question ${survey.currentQuestion + 1}/${survey.questions.length}:\n${nextQuestion.question}\n\n${formatInstructions}`);
+    }
+});
+
+function validateResponse(response, format, options = null, questionText = '') {
+    response = response.trim();
+    
+    // Special validation for email fields
+    if (questionText.includes('email')) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(response)) {
+            return {
+                isValid: false,
+                error: 'Invalid response format. Please enter a valid email address (e.g., user@example.com).'
+            };
+        }
+        return { isValid: true };
+    }
+
+    // Special validation for name fields
+    if (questionText.includes('name')) {
+        if (!/^[a-zA-Z\s'-]+$/.test(response)) {
+            return {
+                isValid: false,
+                error: 'Invalid response format. Please enter a valid name using letters, spaces, hyphens, or apostrophes.'
+            };
+        }
+        return { isValid: true };
+    }
+
+    switch (format) {
+        case 'number':
+            const num = parseInt(response);
+            return {
+                isValid: !isNaN(num) && num >= 1 && num <= 10,
+                error: 'Invalid response format. Please enter a number between 1 and 10.'
+            };
+        case 'yesno':
+            return {
+                isValid: ['yes', 'no'].includes(response.toLowerCase()),
+                error: 'Invalid response format. Please answer with either "yes" or "no".'
+            };
+        case 'text':
+            return {
+                isValid: response.length > 0,
+                error: 'Invalid response format. Please provide a non-empty text response.'
+            };
+        case 'multiple':
+            if (!options) return { isValid: false, error: 'No options provided.' };
+            return {
+                isValid: Object.keys(options).includes(response.toUpperCase()),
+                error: `Invalid response format. Please choose one of these options:\n${Object.entries(options)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join('\n')}`
+            };
+        default:
+            return { isValid: true };
+    }
+}
+
+function getFormatInstructions(format, options = null, questionText = '') {
+    // Special instructions for email fields
+    if (questionText.includes('email')) {
+        return 'Format: Enter a valid email address (e.g., user@example.com)';
+    }
+
+    // Special instructions for name fields
+    if (questionText.includes('name')) {
+        return 'Format: Enter your name using letters, spaces, hyphens, or apostrophes';
+    }
+
+    switch (format) {
+        case 'number':
+            return 'Format: Enter a number between 1 and 10';
+        case 'yesno':
+            return 'Format: Answer with "yes" or "no"';
+        case 'multiple':
+            if (options) {
+                const optionsList = Object.entries(options)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join('\n');
+                return `Format: Enter the letter of your choice:\n${optionsList}`;
+            }
+            return 'Format: Choose one of the provided options';
+        case 'text':
+            return 'Format: Enter your response as text';
+        default:
+            return '';
+    }
+}
 
 // Enhanced error handling for Discord client
 client.on('error', error => {
@@ -251,15 +398,15 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// Add new endpoint for DMs
+// Update DM endpoint
 app.post('/api/dm', async (req, res) => {
     try {
-        const { userId, message } = req.body;
+        const { userId, message, isStart, questions, format, options } = req.body;
 
-        if (!userId || !message) {
+        if (!userId) {
             return res.status(400).json({ 
                 error: 'Missing required fields',
-                details: 'User ID and message are required'
+                details: 'User ID is required'
             });
         }
 
@@ -271,8 +418,6 @@ app.post('/api/dm', async (req, res) => {
             });
         }
 
-        console.log(`Attempting to send DM to user ${userId}`);
-
         try {
             // Fetch the user
             const user = await client.users.fetch(userId);
@@ -283,9 +428,28 @@ app.post('/api/dm', async (req, res) => {
                 });
             }
 
-            // Create DM channel and send message
-            const dmChannel = await user.createDM();
-            await dmChannel.send(message);
+            if (isStart) {
+                // Check if user already has an active survey
+                if (activeSurveys.has(userId)) {
+                    return res.status(400).json({
+                        error: 'Active survey exists',
+                        details: 'User already has an active survey in progress'
+                    });
+                }
+
+                // Initialize new survey
+                activeSurveys.set(userId, {
+                    questions: questions,
+                    currentQuestion: 0,
+                    answers: []
+                });
+                
+                // Send welcome message and first question
+                const firstQuestion = questions[0];
+                const formatInstructions = getFormatInstructions(firstQuestion.format, firstQuestion.options, firstQuestion.question.toLowerCase());
+                await user.send(message);
+                await user.send(`Question 1/${questions.length}:\n${firstQuestion.question}\n\n${formatInstructions}`);
+            }
 
             console.log(`Successfully sent DM to user ${userId}`);
             res.json({ 

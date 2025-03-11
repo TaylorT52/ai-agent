@@ -179,6 +179,7 @@ function generateEmbedCode() {
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px auto;
         }
         .discord-survey input {
             width: 100%;
@@ -204,6 +205,11 @@ function generateEmbedCode() {
             font-size: 14px;
             margin-top: 5px;
         }
+        .discord-survey .success {
+            color: #28a745;
+            font-size: 14px;
+            margin-top: 5px;
+        }
     </style>
     <div class="discord-survey">
         <h3>Discord Survey</h3>
@@ -211,9 +217,13 @@ function generateEmbedCode() {
         <input type="text" id="discord-user-id" placeholder="Discord User ID">
         <button onclick="startSurvey()">Start Survey</button>
         <div id="survey-error" class="error"></div>
+        <div id="survey-success" class="success"></div>
     </div>
 </div>
 <script>
+// API URL - Replace this with your production server URL
+const API_URL = 'http://localhost:3001';
+
 // Survey questions
 const SURVEY_QUESTIONS = ${JSON.stringify(questions, null, 2)};
 
@@ -240,6 +250,11 @@ function getFormatInstructions(format, options = null) {
 async function startSurvey() {
     const userId = document.getElementById('discord-user-id').value;
     const errorDiv = document.getElementById('survey-error');
+    const successDiv = document.getElementById('survey-success');
+    
+    // Clear previous messages
+    errorDiv.textContent = '';
+    successDiv.textContent = '';
     
     if (!userId) {
         errorDiv.textContent = 'Please enter your Discord User ID';
@@ -248,7 +263,7 @@ async function startSurvey() {
     
     try {
         // Send initial message to user
-        const startResponse = await fetch('/api/dm', {
+        const startResponse = await fetch(\`\${API_URL}/api/dm\`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -262,14 +277,15 @@ async function startSurvey() {
         });
 
         if (!startResponse.ok) {
-            throw new Error('Failed to start survey');
+            const error = await startResponse.json();
+            throw new Error(error.error || 'Failed to start survey');
         }
 
         // Send first question with format instructions
         const firstQuestion = SURVEY_QUESTIONS[0];
         const formatInstructions = getFormatInstructions(firstQuestion.format, firstQuestion.options);
         
-        const sendQuestion = await fetch('/api/dm', {
+        const sendQuestion = await fetch(\`\${API_URL}/api/dm\`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -285,14 +301,14 @@ async function startSurvey() {
         });
 
         if (sendQuestion.ok) {
-            alert('Survey has started! Please check your Discord DMs to answer the questions.');
-            errorDiv.textContent = '';
+            successDiv.textContent = 'Survey has started! Please check your Discord DMs to answer the questions.';
         } else {
-            errorDiv.textContent = 'Failed to start survey. Please try again.';
+            const error = await sendQuestion.json();
+            errorDiv.textContent = error.error || 'Failed to start survey. Please try again.';
         }
     } catch (error) {
         console.error('Error starting survey:', error);
-        errorDiv.textContent = 'Failed to start survey. Please try again.';
+        errorDiv.textContent = error.message || 'Failed to start survey. Please try again.';
     }
 }
 </script>`;
