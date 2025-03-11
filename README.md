@@ -1,12 +1,12 @@
-# Discord Bot API
+# Discord Survey Platform
 
-A simple API that allows you to send messages to a Discord channel and receive bot responses through a web interface.
+A platform that allows you to create custom surveys that will be sent via Discord DMs.
 
 ## Prerequisites
 
 - Node.js installed on your system
+- Python 3.x installed for the development server
 - A Discord bot token
-- A Discord server with a channel named `webform-bot`
 - PM2 (for production deployment)
 
 ## Setup
@@ -14,85 +14,121 @@ A simple API that allows you to send messages to a Discord channel and receive b
 1. Clone this repository
 2. Install dependencies:
    ```bash
-   npm install
+   # Install production server dependencies
+   npm run discord-api:install
+   
+   # Install development server dependencies
+   npm run dev:install
    ```
-3. Create a `.env` file in the root directory:
+3. Create a `.env` file in the prodserver directory:
    ```
    DISCORD_TOKEN=your_bot_token_here
-   PORT=3001  # Optional, defaults to 3001
-   ALLOWED_ORIGINS=http://yourdomain.com,http://localhost:8000  # Comma-separated list of allowed origins, or * for all
-   NODE_ENV=production  # For production deployment
+   ALLOWED_ORIGINS=*  # Or your specific domains
    ```
 
-## Development
+## Running the Servers
 
-1. Start the development server (with auto-reload):
-   ```bash
-   npm run dev
-   ```
+### Production Server
 
-## Production Deployment
-
-1. Install PM2 globally:
-   ```bash
-   npm install -g pm2
-   ```
-
-2. Start the production server:
+1. Start the production server:
    ```bash
    npm run prod
    ```
+   This will start the server using PM2 for process management.
 
-3. Other PM2 commands:
+2. Check the production server status:
    ```bash
-   npm run stop     # Stop the server
-   npm run restart  # Restart the server
-   npm run logs     # View logs
+   npm run health
+   ```
+   This will show:
+   - If the bot is connected
+   - The bot's tag and ID
+   - Available channels
+   - Server uptime
+
+3. View server logs:
+   ```bash
+   npm run logs
    ```
 
-4. To make PM2 start on system boot:
+4. Stop the production server:
    ```bash
-   pm2 startup
-   pm2 save
+   cd prodserver && pm2 stop discord-api
    ```
 
-## Rate Limiting
+### Development Server
 
-The API includes rate limiting to prevent abuse:
-- 100 requests per IP address per 15 minutes
-- Message length limited to 2000 characters
-- Username length limited to 32 characters
+1. Start the development server:
+   ```bash
+   npm run dev
+   ```
+   This will start the Flask development server on port 5001.
+
+2. Check the development server status:
+   - Open your browser to http://localhost:5001
+   - The developer platform interface should load
+   - Check the browser console for any errors
+   - Server logs will appear in the terminal where you ran `npm run dev`
+
+3. Stop the development server:
+   - Press Ctrl+C in the terminal where the server is running
+
+## Troubleshooting
+
+### Production Server Issues
+
+1. If the health check fails:
+   - Verify the Discord bot token in prodserver/.env
+   - Check if PM2 is running: `pm2 status`
+   - Review the logs: `npm run logs`
+
+2. If the bot isn't responding:
+   - Check if the bot is online in Discord
+   - Verify the bot has proper permissions
+   - Check the server logs for connection errors
+
+### Development Server Issues
+
+1. If the server won't start:
+   - Check if Python and required packages are installed
+   - Verify port 5001 is not in use
+   - Check for errors in the terminal output
+
+2. If the interface doesn't load:
+   - Verify you're using http://localhost:5001
+   - Check the browser console for JavaScript errors
+   - Ensure all static files are being served correctly
 
 ## API Endpoints
 
-### POST /api/chat
-Send a message to the Discord channel and receive a bot response.
+### POST /api/dm
+Send a survey to a Discord user via DM.
 
 **Request Body:**
 ```json
 {
-    "message": "Your message here",
-    "username": "Your name"
+    "userId": "Discord user ID",
+    "message": "Survey question",
+    "isStart": true,
+    "questions": [
+        {
+            "question": "What is your favorite color?",
+            "format": "text"
+        }
+    ]
 }
 ```
 
 **Response:**
 ```json
 {
-    "response": "Bot's response message"
-}
-```
-
-**Error Response:**
-```json
-{
-    "error": "Error message",
-    "details": "Additional error details"
+    "success": true,
+    "message": "Survey started"
 }
 ```
 
 ### GET /health
-Check the status of the API and bot connection.
+Check the status of the production server and bot connection.
 
 **Response:**
 ```json
@@ -100,6 +136,8 @@ Check the status of the API and bot connection.
     "status": "ok",
     "botConnected": true,
     "uptime": 123456,
+    "botTag": "BotName#1234",
+    "botId": "bot-id",
     "channels": [
         {
             "name": "channel-name",
@@ -113,53 +151,28 @@ Check the status of the API and bot connection.
 ## Security Considerations
 
 1. CORS is enabled and can be configured via the `ALLOWED_ORIGINS` environment variable
-2. Rate limiting is enabled to prevent abuse
-3. Input validation is implemented for message and username lengths
-4. Error handling is implemented to prevent server crashes
-5. The server automatically attempts to reconnect if the Discord connection is lost
+2. Input validation is implemented for all survey responses
+3. Error handling is implemented to prevent server crashes
+4. The server automatically attempts to reconnect if the Discord connection is lost
 
-## Troubleshooting
+## Question Formats
 
-1. If you see "Bot is not connected":
-   - Check that your Discord bot token is correct
-   - Ensure the bot is online in Discord
-   - Check the logs with `npm run logs`
+The platform supports multiple question formats:
 
-2. If you see "webform-bot channel is not found":
-   - Create a text channel named exactly `webform-bot` in your Discord server
-   - Make sure the bot has access to the channel
+1. Text
+   - Free-form text responses
+   - No format restrictions
 
-3. If you get rate limit errors:
-   - Wait for the rate limit window to reset (15 minutes)
-   - Consider increasing the rate limit in production if needed
+2. Number (1-10)
+   - Numeric responses only
+   - Must be between 1 and 10
 
-4. For production issues:
-   - Check the PM2 logs: `npm run logs`
-   - Monitor the process: `pm2 monit`
-   - Check system resources: `pm2 status`
+3. Yes/No
+   - Only accepts "yes" or "no" (case insensitive)
 
-## Configuration Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| position | string | 'bottom-right' | Widget position ('bottom-right' or 'bottom-left') |
-| primaryColor | string | '#007bff' | Primary color for the widget theme |
-| title | string | 'Chat with us' | Title displayed in the widget header |
-| placeholder | string | 'Type your message...' | Placeholder text for the input field |
-| apiUrl | string | 'http://localhost:5000/api/chat' | Backend API URL for chat processing |
-```
-
-## How It Works
-
-1. When you send a message through the web interface or API:
-   - The message is sent to the `webform-bot` channel with your username as a prefix
-   - The system waits for the next bot response in the channel
-   - The bot's response is returned to you
-
-2. The system will:
-   - Wait up to 30 seconds for a bot response
-   - Return "No response received" if no bot responds within that time
-   - Ignore messages from the API bot itself
+4. Multiple Choice
+   - Lettered options (A, B, C, D)
+   - Must select one of the provided options
 ```
 
 ## Configuration Options
