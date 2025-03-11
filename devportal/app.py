@@ -259,6 +259,8 @@ def start_form():
     discord_user_id = request.json.get('discordUserId')
     form_id = request.json.get('formId')
     
+    print(discord_user_id)
+
     if not discord_user_id or not form_id:
         return jsonify({'error': 'Discord user ID and form ID are required'}), 400
 
@@ -282,9 +284,10 @@ def start_form():
         submission = FormSubmission(
             form_id=form_id,
             discord_user_id=discord_user_id,
-            data="{}",  # Empty data initially
+            data="{}",  
             status="pending"
         )
+
         db.session.add(submission)
         db.session.commit()
         

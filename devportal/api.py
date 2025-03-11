@@ -218,6 +218,7 @@ def start_form():
             data="{}",  # Empty data initially
             status="pending"
         )
+
         db.session.add(submission)
         db.session.commit()
         

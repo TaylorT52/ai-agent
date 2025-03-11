@@ -37,6 +37,7 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages,
     ]
 });
 
@@ -243,6 +244,68 @@ app.post('/api/chat', async (req, res) => {
         });
     } catch (error) {
         console.error('Error in /api/chat:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: error.message
+        });
+    }
+});
+
+// Add new endpoint for DMs
+app.post('/api/dm', async (req, res) => {
+    try {
+        const { userId, message } = req.body;
+
+        if (!userId || !message) {
+            return res.status(400).json({ 
+                error: 'Missing required fields',
+                details: 'User ID and message are required'
+            });
+        }
+
+        // Check if bot is connected
+        if (!client.isReady()) {
+            return res.status(503).json({
+                error: 'Service unavailable',
+                details: 'Discord bot is not connected'
+            });
+        }
+
+        console.log(`Attempting to send DM to user ${userId}`);
+
+        try {
+            // Fetch the user
+            const user = await client.users.fetch(userId);
+            if (!user) {
+                return res.status(404).json({
+                    error: 'User not found',
+                    details: 'Could not find user with the provided ID'
+                });
+            }
+
+            // Create DM channel and send message
+            const dmChannel = await user.createDM();
+            await dmChannel.send(message);
+
+            console.log(`Successfully sent DM to user ${userId}`);
+            res.json({ 
+                success: true, 
+                message: 'DM sent successfully',
+                user: {
+                    id: user.id,
+                    tag: user.tag
+                }
+            });
+        } catch (error) {
+            console.error('Failed to send DM:', error);
+            res.status(400).json({
+                error: 'Failed to send DM',
+                details: error.message,
+                hint: 'Make sure the user exists and has DMs enabled for this server'
+            });
+        }
+    } catch (error) {
+        console.error('Error in /api/dm:', error);
         res.status(500).json({ 
             error: 'Internal server error',
             details: error.message

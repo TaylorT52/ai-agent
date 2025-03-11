@@ -11,3 +11,10 @@ wheels/
 
 # Secrets
 .env
+
+#mac
+.DS_Store
+
+#node modules, log files
+node_modules/
+*.log
