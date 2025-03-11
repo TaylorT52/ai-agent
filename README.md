@@ -1,103 +1,184 @@
-# Discord Survey Platform
+# Discord Survey Bot
 
-A platform that allows you to create custom surveys that will be sent via Discord DMs.
-
-## Prerequisites
-
-- Node.js installed on your system
-- Python 3.x installed for the development server
-- A Discord bot token
-- PM2 (for production deployment)
+A Discord bot that allows you to conduct surveys through DMs and collect responses.
 
 ## Setup
 
-1. Clone this repository
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd discord-survey-bot
+```
+
 2. Install dependencies:
-   ```bash
-   # Install production server dependencies
-   npm run discord-api:install
-   
-   # Install development server dependencies
-   npm run dev:install
-   ```
-3. Create a `.env` file in the prodserver directory:
-   ```
-   DISCORD_TOKEN=your_bot_token_here
-   ALLOWED_ORIGINS=*  # Or your specific domains
-   ```
+```bash
+npm install
+```
 
-## Running the Servers
+3. Create a `.env` file in the root directory with:
+```env
+DISCORD_TOKEN=your_discord_bot_token
+PORT=3001 # Optional, defaults to 3001
+ALLOWED_ORIGINS=* # Optional, for CORS
+```
 
-### Production Server
+## Running the Server
 
-1. Start the production server:
-   ```bash
-   npm run prod
-   ```
-   This will start the server using PM2 for process management.
+### Development Mode
+```bash
+npm run dev
+```
+This will:
+- Start the server with nodemon for auto-reloading
+- Watch for file changes
+- Show detailed logs in the console
 
-2. Check the production server status:
-   ```bash
-   npm run health
-   ```
-   This will show:
-   - If the bot is connected
-   - The bot's tag and ID
-   - Available channels
-   - Server uptime
+### Production Mode
+```bash
+npm run prod
+```
+This will:
+- Start the server using PM2 for process management
+- Run in the background
+- Auto-restart on crashes
+- Handle logs automatically
 
-3. View server logs:
-   ```bash
-   npm run logs
-   ```
+### Useful PM2 Commands
+```bash
+# View logs
+npm run logs
 
-4. Stop the production server:
-   ```bash
-   cd prodserver && pm2 stop discord-api
-   ```
+# Stop the server
+npm run stop
 
-### Development Server
+# Restart the server
+npm run restart
 
-1. Start the development server:
-   ```bash
-   npm run dev
-   ```
-   This will start the Flask development server on port 5001.
+# Check server status
+npm run status
+```
 
-2. Check the development server status:
-   - Open your browser to http://localhost:5001
-   - The developer platform interface should load
-   - Check the browser console for any errors
-   - Server logs will appear in the terminal where you ran `npm run dev`
+## Testing the Bot
 
-3. Stop the development server:
-   - Press Ctrl+C in the terminal where the server is running
+1. Start a survey:
+```bash
+curl -X POST http://localhost:3001/api/dm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "YOUR_DISCORD_USER_ID",
+    "isStart": true,
+    "questions": [
+      {
+        "question": "How satisfied are you?",
+        "format": "number"
+      },
+      {
+        "question": "Would you recommend us?",
+        "format": "yesno"
+      }
+    ]
+  }'
+```
+
+2. Check server health:
+```bash
+curl http://localhost:3001/health
+```
+
+3. Get active survey status:
+```bash
+curl http://localhost:3001/api/survey-status/YOUR_DISCORD_USER_ID
+```
+
+## Question Formats
+
+The bot supports several question formats:
+
+1. `number` - Accepts numbers 1-10
+```json
+{
+  "question": "Rate our service (1-10)",
+  "format": "number"
+}
+```
+
+2. `yesno` - Accepts "yes" or "no"
+```json
+{
+  "question": "Would you recommend us?",
+  "format": "yesno"
+}
+```
+
+3. `text` - Accepts any text response
+```json
+{
+  "question": "Any additional feedback?",
+  "format": "text"
+}
+```
+
+4. `multiple` - Multiple choice with options
+```json
+{
+  "question": "Which feature do you use most?",
+  "format": "multiple",
+  "options": {
+    "A": "Dashboard",
+    "B": "Reports",
+    "C": "Analytics",
+    "D": "Settings"
+  }
+}
+```
 
 ## Troubleshooting
 
-### Production Server Issues
-
-1. If the health check fails:
-   - Verify the Discord bot token in prodserver/.env
-   - Check if PM2 is running: `pm2 status`
-   - Review the logs: `npm run logs`
-
-2. If the bot isn't responding:
-   - Check if the bot is online in Discord
+1. **Bot not connecting:**
+   - Check if your Discord token is correct
+   - Ensure the bot is invited to your server
    - Verify the bot has proper permissions
-   - Check the server logs for connection errors
 
-### Development Server Issues
+2. **DMs not working:**
+   - Make sure the user exists
+   - Check if the user has DMs enabled
+   - Verify the user ID is correct
 
-1. If the server won't start:
-   - Check if Python and required packages are installed
-   - Verify port 5001 is not in use
-   - Check for errors in the terminal output
+3. **Server issues:**
+   - Check logs: `npm run logs`
+   - Verify port 3001 is available
+   - Check if the bot is running: `npm run status`
 
-2. If the interface doesn't load:
-   - Verify you're using http://localhost:5001
-   - Check the browser console for JavaScript errors
-   - Ensure all static files are being served correctly
+## Development
+
+To modify the bot:
+
+1. Make changes in development mode:
+```bash
+npm run dev
+```
+
+2. Test your changes:
+```bash
+# Start a test survey
+curl -X POST http://localhost:3001/api/dm -H "Content-Type: application/json" -d '{
+  "userId": "YOUR_DISCORD_USER_ID",
+  "isStart": true,
+  "questions": [
+    {
+      "question": "Test question?",
+      "format": "text"
+    }
+  ]
+}'
+```
+
+3. Deploy to production:
+```bash
+git pull  # Get latest changes
+npm install  # Update dependencies
+npm run restart  # Restart the production server
+```
 
 ## API Endpoints
 
