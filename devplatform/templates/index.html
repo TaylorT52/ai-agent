@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Survey Platform</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Discord Survey Platform</h1>
+            <p>Create custom surveys that will be sent via Discord DMs</p>
+        </header>
+
+        <section id="apiKeySection" class="section">
+            <h2>Your API Key</h2>
+            <div class="api-key-container">
+                <input type="text" id="apiKey" readonly placeholder="Generate an API key to get started">
+                <button onclick="generateApiKey()">Generate New Key</button>
+                <button onclick="copyApiKey()">Copy</button>
+            </div>
+        </section>
+
+        <section id="questionSection" class="section">
+            <h2>Survey Questions</h2>
+            <div class="format-section">
+                <label for="responseFormat">Response Format:</label>
+                <select id="responseFormat">
+                    <option value="text">Free Text</option>
+                    <option value="number">Number (1-10)</option>
+                    <option value="yesno">Yes/No</option>
+                    <option value="multiple">Multiple Choice</option>
+                </select>
+            </div>
+            
+            <div id="questions">
+                <!-- Questions will be added here -->
+            </div>
+            
+            <button onclick="addQuestion()" class="add-question">Add Question</button>
+            <button onclick="saveQuestions()" class="save">Save Questions</button>
+        </section>
+
+        <section id="embedSection" class="section hidden">
+            <h2>Embed Code</h2>
+            <p>Copy this code and paste it into your website:</p>
+            <div class="code-container">
+                <pre><code id="embedCode"></code></pre>
+                <button onclick="copyEmbedCode()">Copy Code</button>
+            </div>
+            
+            <div class="preview-section">
+                <h3>Preview</h3>
+                <div id="previewContainer">
+                    <!-- Preview will be shown here -->
+                </div>
+            </div>
+        </section>
+
+        <section id="integrationGuide" class="section">
+            <h2>Integration Guide</h2>
+            
+            <div class="guide-section">
+                <h3>1. Enable Developer Mode in Discord</h3>
+                <ol>
+                    <li>Open Discord</li>
+                    <li>Go to User Settings (⚙️ next to your username)</li>
+                    <li>Scroll down to "App Settings" and click on "Advanced"</li>
+                    <li>Enable "Developer Mode"</li>
+                </ol>
+            </div>
+
+            <div class="guide-section">
+                <h3>2. Finding User IDs</h3>
+                <p>To get a Discord User ID:</p>
+                <ol>
+                    <li>Right-click on a user's name or profile picture</li>
+                    <li>Click "Copy ID" at the bottom of the menu</li>
+                    <li>The ID will be copied to your clipboard</li>
+                </ol>
+                <div class="note">
+                    User IDs are typically 17-20 digit numbers. Example: 756724128588759231
+                </div>
+            </div>
+
+            <div class="guide-section">
+                <h3>3. Embedding the Survey</h3>
+                <ol>
+                    <li>Generate your API key and create your survey questions above</li>
+                    <li>Copy the generated embed code</li>
+                    <li>Paste the code into your website's HTML where you want the survey to appear</li>
+                    <li>The widget is self-contained with its own styling and will work automatically</li>
+                </ol>
+                <div class="note">
+                    Make sure users have DMs enabled for the server where the bot is installed
+                </div>
+            </div>
+
+            <div class="guide-section">
+                <h3>4. Testing</h3>
+                <p>Before deploying to production:</p>
+                <ol>
+                    <li>Test the survey with your own Discord ID</li>
+                    <li>Verify that you receive the questions in your DMs</li>
+                    <li>Check that the response format works as expected</li>
+                    <li>Test with different question types and formats</li>
+                </ol>
+            </div>
+
+            <div class="guide-section">
+                <h3>5. Troubleshooting</h3>
+                <ul>
+                    <li><strong>Not receiving DMs?</strong> Make sure you have DMs enabled for the server</li>
+                    <li><strong>Invalid User ID?</strong> Double-check that Developer Mode is enabled and you're copying the correct ID</li>
+                    <li><strong>Widget not showing?</strong> Ensure the embed code is properly placed in your HTML</li>
+                    <li><strong>Other issues?</strong> Check the browser console for any error messages</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html> 

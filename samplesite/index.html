@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample Website - Discord Survey Integration</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="nav-content">
+                <h1>My Gaming Community</h1>
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#survey">Survey</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section id="home" class="hero">
+            <div class="hero-content">
+                <h1>Welcome to Our Gaming Community</h1>
+                <p>Join our community of passionate gamers and share your experiences!</p>
+            </div>
+        </section>
+
+        <section id="about" class="about">
+            <div class="container">
+                <h2>About Us</h2>
+                <p>We're a community of gamers dedicated to creating an inclusive and fun environment for everyone. Whether you're a casual player or a competitive gamer, you'll find your place here.</p>
+            </div>
+        </section>
+
+        <section id="survey" class="survey">
+            <div class="container">
+                <h2>Community Survey</h2>
+                <p>Help us improve our community by taking our quick survey! Your feedback matters to us.</p>
+                
+                <div class="survey-container">
+                    <!-- Discord Survey Widget -->
+                    <div id="discord-survey">
+                        <style>
+                            .discord-survey {
+                                max-width: 400px;
+                                padding: 20px;
+                                background: #fff;
+                                border-radius: 8px;
+                                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                            }
+                            .discord-survey input {
+                                width: 100%;
+                                padding: 8px;
+                                margin: 10px 0;
+                                border: 1px solid #ddd;
+                                border-radius: 4px;
+                            }
+                            .discord-survey button {
+                                background: #7289da;
+                                color: white;
+                                border: none;
+                                padding: 10px 20px;
+                                border-radius: 4px;
+                                cursor: pointer;
+                            }
+                            .discord-survey button:hover {
+                                background: #5b73c7;
+                            }
+                        </style>
+                        <div class="discord-survey">
+                            <h3>Discord Survey</h3>
+                            <p>Enter your Discord User ID to receive the survey:</p>
+                            <input type="text" id="discord-user-id" placeholder="Discord User ID">
+                            <button onclick="startSurvey('${currentApiKey}')">Start Survey</button>
+                        </div>
+                    </div>
+                    <script>
+                    async function startSurvey(apiKey) {
+                        const userId = document.getElementById('discord-user-id').value;
+                        if (!userId) {
+                            alert('Please enter your Discord User ID');
+                            return;
+                        }
+                        
+                        try {
+                            const response = await fetch('/api/dm', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    userId,
+                                    message: 'Hello! This is a test DM from the test site.'
+                                })
+                            });
+                            
+                            const data = await response.json();
+                            if (data.success) {
+                                alert('Survey has been sent to your Discord DMs!');
+                            } else {
+                                alert('Failed to start survey: ' + (data.error || 'Unknown error'));
+                            }
+                        } catch (error) {
+                            console.error('Error starting survey:', error);
+                            alert('Failed to start survey. Please try again.');
+                        }
+                    }
+                    </script>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="contact">
+            <div class="container">
+                <h2>Contact Us</h2>
+                <p>Have questions? Join our Discord server or send us a message!</p>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <h3>Discord Server</h3>
+                        <a href="#" class="button">Join Server</a>
+                    </div>
+                    <div class="contact-item">
+                        <h3>Email</h3>
+                        <p>contact@gamingcommunity.example</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Gaming Community. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html> 
