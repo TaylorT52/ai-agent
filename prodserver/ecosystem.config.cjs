@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'discord-api',
     script: 'server.js',
-    node_args: '--experimental-modules',
+    node_args: '--experimental-modules --es-module-specifier-resolution=node',
     env: {
       NODE_ENV: 'development'
     },
@@ -16,6 +16,8 @@ module.exports = {
     out_file: 'logs/output.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
     merge_logs: true,
-    autorestart: true
+    autorestart: true,
+    exec_mode: 'cluster',
+    instances: 1
   }]
 }; 

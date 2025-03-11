@@ -1,35 +1,23 @@
 {
-  "name": "discord-api",
+  "name": "discord-survey-root",
   "version": "1.0.0",
-  "description": "Discord bot API for sending messages and receiving responses",
-  "main": "prodserver/server.js",
+  "private": true,
   "type": "module",
   "scripts": {
-    "start": "node prodserver/server.js",
-    "dev": "nodemon prodserver/server.js",
-    "prod": "cd prodserver && pm2 start ecosystem.config.cjs --env production",
-    "stop": "pm2 stop discord-api",
-    "restart": "pm2 restart discord-api",
-    "logs": "pm2 logs discord-api",
-    "test": "node test-api.js",
-    "status": "node check-status.js",
+    "discord-api": "cd prodserver && npm start",
+    "discord-api:dev": "cd prodserver && npm run dev",
+    "discord-api:install": "cd prodserver && npm install",
     "health": "node prodserver/check-prod.js",
-    "setup": "mkdir -p prodserver/logs"
+    "logs": "cd prodserver && pm2 logs discord-api",
+    "prod": "cd prodserver && pm2 start ecosystem.config.cjs",
+    "sample:install": "cd samplesite && npm install",
+    "sample": "cd samplesite && npm start",
+    "sample:dev": "cd samplesite && npm run dev",
+    "dev:install": "cd devplatform && pip install -r requirements.txt",
+    "dev": "cd devplatform && python server.py"
   },
   "dependencies": {
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "express-rate-limit": "^7.1.5",
-    "node-fetch": "^3.3.2",
-    "pm2": "^5.3.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "pm2": "^5.3.1",
+    "node-fetch": "^3.3.2"
   }
-}
+} 
