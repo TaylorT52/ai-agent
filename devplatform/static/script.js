@@ -1,5 +1,6 @@
 let currentApiKey = '';
 let questions = [];
+let generatedQuestions = [];
 
 async function generateApiKey() {
     try {
@@ -325,6 +326,153 @@ function copyEmbedCode() {
     navigator.clipboard.writeText(embedCode)
         .then(() => alert('Embed code copied to clipboard!'))
         .catch(err => console.error('Failed to copy:', err));
+}
+
+async function generateQuestionsFromDescription() {
+    if (!currentApiKey) {
+        alert('Please generate an API key first');
+        return;
+    }
+
+    const description = document.getElementById('naturalLanguageInput').value.trim();
+    if (!description) {
+        alert('Please enter a description of the questions you want to generate');
+        return;
+    }
+
+    try {
+        console.log('Sending request with:', {
+            api_key: currentApiKey,
+            description: description
+        });
+
+        const response = await fetch('/api/translate-questions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                api_key: currentApiKey,
+                description: description
+            })
+        });
+
+        const data = await response.json();
+        console.log('Received response:', data);
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to generate questions');
+        }
+
+        if (!data.questions || !Array.isArray(data.questions)) {
+            throw new Error('Invalid response format: questions array is missing');
+        }
+
+        generatedQuestions = data.questions;
+        displayGeneratedQuestions(generatedQuestions);
+    } catch (error) {
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            error: error
+        });
+        alert('Error generating questions: ' + error.message);
+    }
+}
+
+function displayGeneratedQuestions(questions) {
+    const container = document.querySelector('#generatedQuestions');
+    const preview = container.querySelector('.questions-preview');
+    
+    preview.innerHTML = questions.map((q, index) => `
+        <div class="preview-question">
+            <h4>Question ${index + 1}</h4>
+            <p><strong>Question:</strong> ${q.question}</p>
+            <p><strong>Format:</strong> ${q.format}</p>
+            ${q.options ? `
+                <p><strong>Options:</strong></p>
+                <ul>
+                    ${Object.entries(q.options).map(([key, value]) => 
+                        `<li>${key}: ${value}</li>`
+                    ).join('')}
+                </ul>
+            ` : ''}
+            ${q.validation ? `<p><strong>Validation:</strong> ${q.validation}</p>` : ''}
+        </div>
+    `).join('');
+    
+    container.classList.remove('hidden');
+}
+
+function useGeneratedQuestions() {
+    if (!generatedQuestions.length) {
+        alert('No questions have been generated yet');
+        return;
+    }
+
+    // Clear existing questions
+    const questionsContainer = document.getElementById('questions');
+    questionsContainer.innerHTML = '';
+
+    // Add each generated question
+    generatedQuestions.forEach(q => {
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-item';
+        
+        // Question input
+        const questionInput = document.createElement('input');
+        questionInput.type = 'text';
+        questionInput.value = q.question;
+        questionInput.className = 'question-input';
+        
+        // Format select
+        const formatSelect = document.createElement('select');
+        formatSelect.className = 'format-select';
+        formatSelect.innerHTML = `
+            <option value="text" ${q.format === 'text' ? 'selected' : ''}>Text</option>
+            <option value="number" ${q.format === 'number' ? 'selected' : ''}>Number (1-10)</option>
+            <option value="yesno" ${q.format === 'yesno' ? 'selected' : ''}>Yes/No</option>
+            <option value="multiple" ${q.format === 'multiple' ? 'selected' : ''}>Multiple Choice</option>
+        `;
+        formatSelect.onchange = () => handleFormatChange(formatSelect);
+        
+        // Multiple choice options container
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'options-container';
+        if (q.format === 'multiple' && q.options) {
+            optionsContainer.classList.add('visible');
+            const optionsStr = Object.values(q.options).join(', ');
+            optionsContainer.innerHTML = `
+                <input type="text" 
+                       class="options-input" 
+                       value="${optionsStr}"
+                       placeholder="Options (comma-separated)"
+                       title="Enter options separated by commas (e.g., Red, Blue, Green)">
+            `;
+        } else {
+            optionsContainer.innerHTML = `
+                <input type="text" 
+                       class="options-input" 
+                       placeholder="Options (comma-separated)"
+                       title="Enter options separated by commas (e.g., Red, Blue, Green)">
+            `;
+        }
+        
+        // Delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'delete-question';
+        deleteButton.innerHTML = '×';
+        deleteButton.onclick = () => questionDiv.remove();
+        
+        questionDiv.appendChild(questionInput);
+        questionDiv.appendChild(formatSelect);
+        questionDiv.appendChild(optionsContainer);
+        questionDiv.appendChild(deleteButton);
+        questionsContainer.appendChild(questionDiv);
+    });
+
+    // Scroll to the questions section
+    document.getElementById('questionSection').scrollIntoView({ behavior: 'smooth' });
 }
 
 // Add initial question

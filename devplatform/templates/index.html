@@ -22,8 +22,29 @@
             </div>
         </section>
 
+        <section id="naturalLanguageSection" class="section">
+            <h2>Natural Language Question Generation</h2>
+            <p>Describe your survey questions in natural language and we'll convert them to structured questions.</p>
+            
+            <div class="natural-language-container">
+                <textarea 
+                    id="naturalLanguageInput" 
+                    placeholder="Example: Create a customer feedback survey with 3 questions. First ask about their satisfaction level from 1-10. Then ask if they would recommend our service to others. Finally, ask them to choose their favorite feature from: Dashboard, Analytics, Reports, and Support."
+                    rows="6"
+                ></textarea>
+                <button onclick="generateQuestionsFromDescription()" class="generate-btn">Generate Questions</button>
+            </div>
+            
+            <div id="generatedQuestions" class="generated-questions hidden">
+                <h3>Generated Questions</h3>
+                <div class="questions-preview"></div>
+                <button onclick="useGeneratedQuestions()" class="use-questions-btn">Use These Questions</button>
+            </div>
+        </section>
+
         <section id="questionSection" class="section">
-            <h2>Survey Questions</h2>            
+            <h2>Survey Questions</h2>
+            <p>Or create questions manually:</p>
             <div id="questions">
                 <!-- Questions will be added here -->
             </div>
