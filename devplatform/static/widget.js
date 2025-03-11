@@ -65,6 +65,13 @@ class SurveyWidget {
         this.inputArea.appendChild(input);
         this.inputArea.appendChild(button);
         
+        // Create typing indicator
+        this.typingIndicator = document.createElement('div');
+        this.typingIndicator.className = 'typing-indicator';
+        this.typingIndicator.innerHTML = '<span></span><span></span><span></span>';
+        this.typingIndicator.style.display = 'none';
+        this.body.appendChild(this.typingIndicator);
+        
         // Assemble widget
         this.widget.appendChild(header);
         this.widget.appendChild(this.body);
@@ -295,7 +302,19 @@ class SurveyWidget {
         }
     }
 
-    addMessage(content, type) {
+    async addMessage(content, type) {
+        if (type === 'bot') {
+            // Show typing indicator
+            this.typingIndicator.style.display = 'inline-block';
+            this.body.scrollTop = this.body.scrollHeight;
+            
+            // Simulate typing delay
+            await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
+            
+            // Hide typing indicator
+            this.typingIndicator.style.display = 'none';
+        }
+        
         const message = document.createElement('div');
         message.className = `message ${type}-message`;
         message.textContent = content;
@@ -315,68 +334,164 @@ const styles = `
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 350px;
+    width: 380px;
     background: white;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     overflow: hidden;
     z-index: 1000;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 .widget-header {
-    background: #007bff;
+    background: #5865F2;
     color: white;
-    padding: 15px;
-    font-weight: bold;
+    padding: 16px 20px;
+    font-weight: 600;
+    font-size: 16px;
     cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .widget-body {
-    padding: 15px;
-    max-height: 400px;
+    padding: 20px;
+    height: 380px;
     overflow-y: auto;
+    background: #F8F9FD;
+    scroll-behavior: smooth;
 }
 
 .widget-input {
     display: flex;
-    padding: 10px;
-    border-top: 1px solid #eee;
+    padding: 16px;
+    background: white;
+    border-top: 1px solid #E8E9EC;
+    gap: 12px;
 }
 
 .widget-input input {
     flex: 1;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    margin-right: 10px;
+    padding: 12px 16px;
+    border: 1px solid #E8E9EC;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+    outline: none;
+}
+
+.widget-input input:focus {
+    border-color: #5865F2;
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.1);
 }
 
 .widget-input button {
-    background: #007bff;
+    background: #5865F2;
     color: white;
     border: none;
-    padding: 8px 15px;
-    border-radius: 4px;
+    padding: 12px 20px;
+    border-radius: 8px;
     cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.widget-input button:hover {
+    background: #4752C4;
 }
 
 .message {
-    margin-bottom: 10px;
-    padding: 8px 12px;
-    border-radius: 15px;
-    max-width: 80%;
+    margin-bottom: 16px;
+    max-width: 85%;
+    font-size: 14px;
+    line-height: 1.5;
+    position: relative;
+    clear: both;
 }
 
 .user-message {
-    background: #007bff;
+    background: #5865F2;
     color: white;
-    margin-left: auto;
+    padding: 12px 16px;
+    border-radius: 12px 12px 0 12px;
+    float: right;
+    word-wrap: break-word;
 }
 
 .bot-message {
-    background: #f1f1f1;
-    color: #333;
+    background: white;
+    color: #2C2F33;
+    padding: 12px 16px;
+    border-radius: 12px 12px 12px 0;
+    float: left;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    word-wrap: break-word;
+}
+
+/* Custom scrollbar for webkit browsers */
+.widget-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.widget-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.widget-body::-webkit-scrollbar-thumb {
+    background: #E8E9EC;
+    border-radius: 4px;
+}
+
+.widget-body::-webkit-scrollbar-thumb:hover {
+    background: #D4D6DC;
+}
+
+/* Message animations */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message {
+    animation: slideIn 0.3s ease forwards;
+}
+
+/* Typing indicator */
+.typing-indicator {
+    padding: 12px 16px;
+    background: white;
+    border-radius: 12px 12px 12px 0;
+    display: inline-block;
+    margin-bottom: 16px;
+    position: relative;
+    animation: slideIn 0.3s ease forwards;
+}
+
+.typing-indicator span {
+    height: 8px;
+    width: 8px;
+    background: #5865F2;
+    display: inline-block;
+    border-radius: 50%;
+    margin-right: 5px;
+    animation: bounce 1.3s linear infinite;
+}
+
+.typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
 }
 `;
 
