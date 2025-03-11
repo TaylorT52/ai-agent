@@ -219,6 +219,131 @@ def save_questions():
     api_keys[api_key]['questions'] = questions
     return jsonify({'success': True})
 
+def generate_human_response(context, response_type="general"):
+    """Generate a human-like response using Mistral API."""
+    try:
+        prompts = {
+            "welcome": """
+You are a friendly survey bot having a casual conversation. Generate a welcoming message for a new survey participant.
+The message should feel like a natural chat conversation, not a formal survey.
+
+Context:
+{context}
+
+Rules:
+1. Be warm and friendly, like chatting with a friend
+2. Start with a casual greeting
+3. Naturally lead into the first question
+4. Don't mention formats or rules explicitly
+5. Don't use phrases like "Please respond" or "according to the format"
+6. Don't mention that you're an AI or a bot
+7. Keep it concise (2-3 sentences)
+
+Example good response:
+"Hi there! 👋 I'd love to learn a bit about you. What's your name?"
+
+Example bad response:
+"Welcome to the survey! You will receive questions one by one. Please respond to each question according to the format specified."
+""",
+            "invalid_format": """
+You are having a casual conversation and need to gently guide the person to provide their answer in a different way.
+Be encouraging and natural, like helping a friend.
+
+Context:
+{context}
+
+Rules:
+1. Be casual and friendly
+2. Don't say "invalid format" or "incorrect format"
+3. Gently guide them to the right format
+4. Use conversational language
+5. Don't mention rules or specifications
+6. Keep it concise and natural
+
+Example good response:
+"I should have been clearer! I'm looking for your name - something like 'John' or 'Sarah'. What should I call you?"
+
+Example bad response:
+"Invalid response format. Please enter a valid name using letters, spaces, hyphens, or apostrophes."
+""",
+            "next_question": """
+You are having a natural conversation. Acknowledge their previous answer and smoothly transition to the next question.
+
+Context:
+{context}
+
+Rules:
+1. Acknowledge their answer naturally
+2. Transition smoothly to the next question
+3. Make it feel like a flowing conversation
+4. Don't mention question numbers or formats
+5. Keep it casual and friendly
+6. Use conversational language
+
+Example good response:
+"Nice to meet you, John! Now I'm curious - what's your favorite color?"
+
+Example bad response:
+"Thank you. Moving to the next question: What is your favorite color? Please choose from the following options."
+""",
+            "completion": """
+You are wrapping up a friendly conversation. Thank the participant warmly and naturally.
+
+Context:
+{context}
+
+Rules:
+1. Be genuinely appreciative
+2. Keep it casual and friendly
+3. Make it feel like ending a nice chat
+4. Don't mention "survey" or "responses"
+5. Use conversational language
+6. Maybe add a friendly emoji
+
+Example good response:
+"Thanks so much for chatting with me, John! Really enjoyed getting to know you better. Take care! 👋"
+
+Example bad response:
+"Thank you for completing the survey. Your responses have been recorded."
+"""
+        }
+
+        # Ensure we have the API key
+        if not os.getenv('MISTRAL_API_KEY'):
+            print("Warning: MISTRAL_API_KEY not found in environment variables")
+            return None
+
+        response = client.chat.complete(
+            model="mistral-large-latest",
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompts.get(response_type, prompts["general"])
+                },
+                {
+                    "role": "user",
+                    "content": context
+                }
+            ],
+            temperature=0.7,
+            max_tokens=150
+        )
+        
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Error generating human response: {str(e)}")
+        return None
+
+def get_format_instructions(format_type, options=None):
+    """Get human-friendly format instructions."""
+    instructions = {
+        "text": "",  # No explicit format instructions for text
+        "number": "on a scale from 1 to 10",
+        "yesno": "with yes or no",
+        "multiple": f"Pick one: {', '.join([f'{v}' for v in options.values()])}" if options else "from the options"
+    }
+    return instructions.get(format_type, "")
+
 @app.route('/api/dm', methods=['POST'])
 def handle_dm():
     data = request.json
@@ -234,9 +359,21 @@ def handle_dm():
             'questions': questions,
             'answers': []
         }
+        
+        # Generate welcome message with first question
+        first_question = questions[0]
+        context = {
+            "question": first_question['question'],
+            "format": get_format_instructions(first_question['format'], first_question.get('options'))
+        }
+        
+        response = generate_human_response(json.dumps(context), "welcome")
+        if not response:
+            response = f"Welcome to the survey! {first_question['question']} {get_format_instructions(first_question['format'], first_question.get('options'))}"
+        
         return jsonify({
             'success': True,
-            'message': f'Started survey for user {user_id}'
+            'message': response
         })
     
     # Handle response and send next question
@@ -248,7 +385,17 @@ def handle_dm():
     
     # Validate response format
     if not validate_response(message, current_question['format'], current_question.get('options')):
-        return jsonify({'error': 'Invalid response format'}), 400
+        context = {
+            "question": current_question['question'],
+            "format": get_format_instructions(current_question['format'], current_question.get('options')),
+            "invalid_response": message
+        }
+        
+        response = generate_human_response(json.dumps(context), "invalid_format")
+        if not response:
+            response = f"That format isn't quite right. {get_format_instructions(current_question['format'], current_question.get('options'))}"
+        
+        return jsonify({'error': response}), 400
     
     # Store answer
     survey['answers'].append({
@@ -260,17 +407,36 @@ def handle_dm():
     
     # Check if survey is complete
     if survey['current_question'] >= len(survey['questions']):
+        context = {
+            "answers": survey['answers']
+        }
+        
+        response = generate_human_response(json.dumps(context), "completion")
+        if not response:
+            response = "Thank you for completing the survey! Your responses have been recorded."
+        
         del active_surveys[user_id]  # Clear the survey data
         return jsonify({
             'success': True,
-            'message': 'Survey completed'
+            'message': response
         })
     
     # Send next question
     next_question = survey['questions'][survey['current_question']]
+    context = {
+        "previous_question": current_question['question'],
+        "previous_answer": message,
+        "next_question": next_question['question'],
+        "format": get_format_instructions(next_question['format'], next_question.get('options'))
+    }
+    
+    response = generate_human_response(json.dumps(context), "next_question")
+    if not response:
+        response = f"{next_question['question']} {get_format_instructions(next_question['format'], next_question.get('options'))}"
+    
     return jsonify({
         'success': True,
-        'next_question': next_question
+        'message': response
     })
 
 def validate_response(response, format, options=None):

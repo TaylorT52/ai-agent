@@ -6,6 +6,13 @@ import { Client, GatewayIntentBits } from 'discord.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import {
+    generateWelcomeMessage,
+    generateInvalidFormatMessage,
+    generateNextQuestionMessage,
+    generateCompletionMessage,
+    getFormatInstructions
+} from './responses.js';
 
 // Initialize environment variables
 dotenv.config();
@@ -28,9 +35,25 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
-    methods: ['GET', 'POST']
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if(!origin) return callback(null, true);
+        
+        const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['*'];
+        if(allowedOrigins.indexOf(origin) === -1 && allowedOrigins[0] !== '*'){
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true,
+    optionsSuccessStatus: 200
 }));
+
+// Handle preflight requests
+app.options('*', cors());
+
 app.use(bodyParser.json());
 app.use(limiter);
 
@@ -140,8 +163,20 @@ client.on('messageCreate', async (message) => {
         const validationResult = validateResponse(response, currentQuestion.format, currentQuestion.options, currentQuestion.question.toLowerCase());
         
         if (!validationResult.isValid) {
-            // Show the error message and question again
-            message.reply(`${validationResult.error}\n\nQuestion: ${currentQuestion.question}`);
+            try {
+                // Show error message using Mistral with detailed validation results
+                const errorMessage = await generateInvalidFormatMessage(
+                    currentQuestion.question,
+                    currentQuestion.format,
+                    currentQuestion.options,
+                    validationResult
+                );
+                await message.reply(errorMessage);
+            } catch (error) {
+                console.error('Error generating invalid format message:', error);
+                // Fallback to showing the basic validation error
+                await message.reply(`${validationResult.error} ${validationResult.details.expected}`);
+            }
             return;
         }
 
@@ -156,23 +191,34 @@ client.on('messageCreate', async (message) => {
         // Move to next question
         survey.currentQuestion++;
 
-        // Check if survey is complete
-        if (survey.currentQuestion >= survey.questions.length) {
-            const summary = survey.answers.map((a, i) => 
-                `Q${i + 1}: ${a.question}\nA: ${a.answer}`
-            ).join('\n\n');
-            
-            message.reply(`Thank you for completing the survey! Here's a summary of your responses:\n\n${summary}`);
-            console.log('Survey completed for user:', message.author.id);
-            console.log('Answers:', survey.answers);
-            activeSurveys.delete(message.author.id);
-            return;
-        }
+        try {
+            // Check if survey is complete
+            if (survey.currentQuestion >= survey.questions.length) {
+                const completionMessage = await generateCompletionMessage(survey.answers);
+                await message.reply(completionMessage);
+                console.log('Survey completed for user:', message.author.id);
+                console.log('Answers:', survey.answers);
+                activeSurveys.delete(message.author.id);
+                return;
+            }
 
-        // Send next question with clear format instructions
-        const nextQuestion = survey.questions[survey.currentQuestion];
-        const formatInstructions = getFormatInstructions(nextQuestion.format, nextQuestion.options, nextQuestion.question.toLowerCase());
-        message.reply(`Question ${survey.currentQuestion + 1}/${survey.questions.length}:\n${nextQuestion.question}\n\n${formatInstructions}`);
+            // Send next question
+            const nextQuestion = survey.questions[survey.currentQuestion];
+            const nextMessage = await generateNextQuestionMessage(
+                currentQuestion.question,
+                response,
+                nextQuestion.question
+            );
+            
+            // Add format instructions only if necessary
+            const formatInst = getFormatInstructions(nextQuestion.format, nextQuestion.options, nextQuestion.question.toLowerCase());
+            const fullMessage = formatInst ? `${nextMessage} ${formatInst}` : nextMessage;
+            
+            await message.reply(fullMessage);
+        } catch (error) {
+            console.error('Error generating response:', error);
+            await message.reply('Sorry, there was an error processing your response. Please try again.');
+        }
     }
 });
 
@@ -185,7 +231,16 @@ function validateResponse(response, format, options = null, questionText = '') {
         if (!emailRegex.test(response)) {
             return {
                 isValid: false,
-                error: 'Invalid response format. Please enter a valid email address (e.g., user@example.com).'
+                error: 'The email address format is incorrect.',
+                details: {
+                    provided: response,
+                    expected: 'An email address like user@example.com',
+                    issues: [
+                        !response.includes('@') ? 'Missing @ symbol' : null,
+                        !response.includes('.') ? 'Missing domain extension' : null,
+                        response.includes(' ') ? 'Contains spaces' : null
+                    ].filter(Boolean)
+                }
             };
         }
         return { isValid: true };
@@ -196,7 +251,15 @@ function validateResponse(response, format, options = null, questionText = '') {
         if (!/^[a-zA-Z\s'-]+$/.test(response)) {
             return {
                 isValid: false,
-                error: 'Invalid response format. Please enter a valid name using letters, spaces, hyphens, or apostrophes.'
+                error: 'The name format is incorrect.',
+                details: {
+                    provided: response,
+                    expected: 'A name using only letters, spaces, hyphens, or apostrophes',
+                    issues: [
+                        /[0-9]/.test(response) ? 'Contains numbers' : null,
+                        /[^a-zA-Z\s'-]/.test(response) ? 'Contains special characters' : null
+                    ].filter(Boolean)
+                }
             };
         }
         return { isValid: true };
@@ -205,61 +268,72 @@ function validateResponse(response, format, options = null, questionText = '') {
     switch (format) {
         case 'number':
             const num = parseInt(response);
+            const isNumber = !isNaN(num);
+            const inRange = num >= 1 && num <= 10;
             return {
-                isValid: !isNaN(num) && num >= 1 && num <= 10,
-                error: 'Invalid response format. Please enter a number between 1 and 10.'
+                isValid: isNumber && inRange,
+                error: 'The number format is incorrect.',
+                details: {
+                    provided: response,
+                    expected: 'A number between 1 and 10',
+                    issues: [
+                        !isNumber ? 'Not a valid number' : null,
+                        isNumber && !inRange ? 'Number is outside the range 1-10' : null
+                    ].filter(Boolean)
+                }
             };
         case 'yesno':
+            const isValidYesNo = ['yes', 'no'].includes(response.toLowerCase());
             return {
-                isValid: ['yes', 'no'].includes(response.toLowerCase()),
-                error: 'Invalid response format. Please answer with either "yes" or "no".'
+                isValid: isValidYesNo,
+                error: 'Please answer with either "yes" or "no".',
+                details: {
+                    provided: response,
+                    expected: '"yes" or "no"',
+                    issues: [
+                        !isValidYesNo ? `"${response}" is not "yes" or "no"` : null
+                    ].filter(Boolean)
+                }
             };
         case 'text':
             return {
                 isValid: response.length > 0,
-                error: 'Invalid response format. Please provide a non-empty text response.'
+                error: 'The response cannot be empty.',
+                details: {
+                    provided: response,
+                    expected: 'A non-empty text response',
+                    issues: [
+                        response.length === 0 ? 'Empty response' : null
+                    ].filter(Boolean)
+                }
             };
         case 'multiple':
-            if (!options) return { isValid: false, error: 'No options provided.' };
+            if (!options) return { 
+                isValid: false, 
+                error: 'No options provided for multiple choice question.',
+                details: {
+                    provided: response,
+                    expected: 'One of the valid options',
+                    issues: ['No options available for this question']
+                }
+            };
+            
+            const validOptions = Object.keys(options);
+            const isValidOption = validOptions.includes(response.toUpperCase());
             return {
-                isValid: Object.keys(options).includes(response.toUpperCase()),
-                error: `Invalid response format. Please choose one of these options:\n${Object.entries(options)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join('\n')}`
+                isValid: isValidOption,
+                error: 'Invalid option selected.',
+                details: {
+                    provided: response,
+                    expected: `One of: ${validOptions.join(', ')}`,
+                    issues: [
+                        !isValidOption ? `"${response}" is not one of the valid options` : null,
+                        `Valid options are: ${Object.entries(options).map(([key, value]) => `${key} (${value})`).join(', ')}`
+                    ].filter(Boolean)
+                }
             };
         default:
             return { isValid: true };
-    }
-}
-
-function getFormatInstructions(format, options = null, questionText = '') {
-    // Special instructions for email fields
-    if (questionText.includes('email')) {
-        return 'Format: Enter a valid email address (e.g., user@example.com)';
-    }
-
-    // Special instructions for name fields
-    if (questionText.includes('name')) {
-        return 'Format: Enter your name using letters, spaces, hyphens, or apostrophes';
-    }
-
-    switch (format) {
-        case 'number':
-            return 'Format: Enter a number between 1 and 10';
-        case 'yesno':
-            return 'Format: Answer with "yes" or "no"';
-        case 'multiple':
-            if (options) {
-                const optionsList = Object.entries(options)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join('\n');
-                return `Format: Enter the letter of your choice:\n${optionsList}`;
-            }
-            return 'Format: Choose one of the provided options';
-        case 'text':
-            return 'Format: Enter your response as text';
-        default:
-            return '';
     }
 }
 
@@ -444,11 +518,19 @@ app.post('/api/dm', async (req, res) => {
                     answers: []
                 });
                 
-                // Send welcome message and first question
-                const firstQuestion = questions[0];
-                const formatInstructions = getFormatInstructions(firstQuestion.format, firstQuestion.options, firstQuestion.question.toLowerCase());
-                await user.send(message);
-                await user.send(`Question 1/${questions.length}:\n${firstQuestion.question}\n\n${formatInstructions}`);
+                try {
+                    // Send welcome message and first question
+                    const firstQuestion = questions[0];
+                    const welcomeMessage = await generateWelcomeMessage(firstQuestion.question, questions.length);
+                    const formatInst = getFormatInstructions(firstQuestion.format, firstQuestion.options, firstQuestion.question.toLowerCase());
+                    const fullMessage = formatInst ? `${welcomeMessage} ${formatInst}` : welcomeMessage;
+                    
+                    await user.send(fullMessage);
+                } catch (error) {
+                    console.error('Error generating welcome message:', error);
+                    activeSurveys.delete(userId);
+                    throw new Error('Failed to generate welcome message');
+                }
             }
 
             console.log(`Successfully sent DM to user ${userId}`);

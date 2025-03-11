@@ -153,7 +153,7 @@ function generateEmbedCode() {
                 options = {};
                 const optionsList = optionsText.split(',').map(o => o.trim());
                 optionsList.forEach((opt, index) => {
-                    options[String.fromCharCode(65 + index)] = opt; // A, B, C, D...
+                    options[String.fromCharCode(65 + index)] = opt;
                 });
             }
         }
@@ -170,17 +170,50 @@ function generateEmbedCode() {
         return;
     }
 
+    const startSurveyStr = startSurvey.toString().replace(/`/g, '\\`');
+    const addMessageStr = addMessage.toString().replace(/`/g, '\\`');
+
     const embedCode = `
 <!-- Discord Survey Widget -->
 <div id="discord-survey">
     <style>
         .discord-survey {
-            max-width: 400px;
+            max-width: 500px;
             padding: 20px;
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .survey-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .message {
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .bot-message {
+            background: #7289da;
+            color: white;
+            align-self: flex-start;
+        }
+        .user-message {
+            background: #e9ecef;
+            color: #2e3338;
+            align-self: flex-end;
         }
         .discord-survey input {
             width: 100%;
@@ -211,10 +244,34 @@ function generateEmbedCode() {
             font-size: 14px;
             margin-top: 5px;
         }
+        .message-input-container {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .message-input-container input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 0;
+        }
+        .message-input-container button {
+            padding: 8px 16px;
+            background: #7289da;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: auto;
+        }
+        .message-input-container button:hover {
+            background: #5b73c7;
+        }
     </style>
     <div class="discord-survey">
         <h3>Discord Survey</h3>
-        <p>Enter your Discord User ID to receive the survey:</p>
+        <p>Enter your Discord User ID to start the survey:</p>
         <input type="text" id="discord-user-id" placeholder="Discord User ID">
         <button onclick="startSurvey()">Start Survey</button>
         <div id="survey-error" class="error"></div>
@@ -228,97 +285,24 @@ const API_URL = 'http://localhost:3001';
 // Survey questions
 const SURVEY_QUESTIONS = ${JSON.stringify(questions, null, 2)};
 
-function getFormatInstructions(format, options = null) {
-    switch (format) {
-        case 'number':
-            return 'Please enter a number between 1 and 10';
-        case 'yesno':
-            return 'Please answer with Yes or No';
-        case 'multiple':
-            if (options) {
-                return \`Please choose one option:\n\${Object.entries(options)
-                    .map(([key, value]) => \`\${key}: \${value}\`)
-                    .join('\\n')}\`;
-            }
-            return 'Please choose one of the provided options';
-        case 'text':
-            return 'Please type your answer';
-        default:
-            return '';
-    }
-}
+${startSurveyStr}
 
-async function startSurvey() {
-    const userId = document.getElementById('discord-user-id').value;
-    const errorDiv = document.getElementById('survey-error');
-    const successDiv = document.getElementById('survey-success');
-    
-    // Clear previous messages
-    errorDiv.textContent = '';
-    successDiv.textContent = '';
-    
-    if (!userId) {
-        errorDiv.textContent = 'Please enter your Discord User ID';
-        return;
-    }
-    
-    try {
-        // Send initial message to user
-        const startResponse = await fetch(\`\${API_URL}/api/dm\`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                userId,
-                message: 'Welcome to the survey! You will receive questions one by one. Please respond to each question according to the format specified.',
-                isStart: true,
-                questions: SURVEY_QUESTIONS
-            })
-        });
-
-        if (!startResponse.ok) {
-            const error = await startResponse.json();
-            throw new Error(error.error || 'Failed to start survey');
-        }
-
-        // Send first question with format instructions
-        const firstQuestion = SURVEY_QUESTIONS[0];
-        const formatInstructions = getFormatInstructions(firstQuestion.format, firstQuestion.options);
-        
-        const sendQuestion = await fetch(\`\${API_URL}/api/dm\`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                userId,
-                message: \`\${firstQuestion.question}\n\${formatInstructions}\`,
-                questionIndex: 0,
-                format: firstQuestion.format,
-                options: firstQuestion.options,
-                totalQuestions: SURVEY_QUESTIONS.length
-            })
-        });
-
-        if (sendQuestion.ok) {
-            successDiv.textContent = 'Survey has started! Please check your Discord DMs to answer the questions.';
-        } else {
-            const error = await sendQuestion.json();
-            errorDiv.textContent = error.error || 'Failed to start survey. Please try again.';
-        }
-    } catch (error) {
-        console.error('Error starting survey:', error);
-        errorDiv.textContent = error.message || 'Failed to start survey. Please try again.';
-    }
-}
-</script>`;
+${addMessageStr}
+</script>`.replace(/\${/g, '\\${');
 
     document.getElementById('embedCode').textContent = embedCode;
     document.getElementById('embedSection').classList.remove('hidden');
     
     // Show preview
     document.getElementById('previewContainer').innerHTML = embedCode;
+}
+
+// Helper function to add messages to the chat
+function addMessage(container, message, type) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}-message`;
+    messageDiv.textContent = message;
+    container.appendChild(messageDiv);
 }
 
 function copyEmbedCode() {
