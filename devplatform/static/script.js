@@ -1,463 +1,440 @@
 let currentApiKey = '';
 let questions = [];
-let generatedQuestions = [];
+let selectedIntegrationType = null;
 
 async function generateApiKey() {
     try {
         const response = await fetch('/api/generate-key', {
-            method: 'POST'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to generate API key');
+        }
+
         const data = await response.json();
-        currentApiKey = data.api_key;
-        document.getElementById('apiKey').value = currentApiKey;
+        // Log the response to see what we're getting
+        console.log('API Key response:', data);
+        
+        // Check if we have the expected property
+        if (!data.api_key && !data.apiKey) {
+            throw new Error('Invalid response format from server');
+        }
+        
+        currentApiKey = data.api_key || data.apiKey;
+        
+        const apiKey = document.getElementById('apiKey');
+        if (apiKey) {
+            apiKey.value = currentApiKey;
+            apiKey.parentElement.classList.remove('hidden');
+            
+            // Show success message
+            console.log('API Key generated:', currentApiKey);
+            document.getElementById('embedSection')?.classList.remove('hidden');
+        } else {
+            console.error('API key input element not found');
+        }
     } catch (error) {
         console.error('Error generating API key:', error);
-        alert('Failed to generate API key. Please try again.');
+        alert(error.message || 'Failed to generate API key. Please try again.');
     }
 }
 
 function copyApiKey() {
-    if (!currentApiKey) {
+    const apiKey = document.getElementById('apiKey').value;
+    if (!apiKey) {
         alert('Please generate an API key first');
         return;
     }
-    navigator.clipboard.writeText(currentApiKey)
+    navigator.clipboard.writeText(apiKey)
         .then(() => alert('API key copied to clipboard!'))
-        .catch(err => console.error('Failed to copy:', err));
+        .catch(err => {
+            console.error('Failed to copy:', err);
+            alert('Failed to copy. Please copy manually.');
+        });
 }
 
-function handleFormatChange(select) {
-    const optionsContainer = select.parentElement.querySelector('.options-container');
-    if (select.value === 'multiple') {
-        optionsContainer.classList.add('visible');
-    } else {
-        optionsContainer.classList.remove('visible');
-    }
+function selectIntegrationType(type) {
+    selectedIntegrationType = type;
+    
+    // Update UI to show selection
+    document.querySelectorAll('.integration-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    document.querySelector(`.integration-option[onclick*="${type}"]`).classList.add('selected');
+    
+    // Update the code preview
+    generateEmbedCode();
 }
 
-function addQuestion() {
-    const questionsContainer = document.getElementById('questions');
-    const questionDiv = document.createElement('div');
-    questionDiv.className = 'question-item';
-    
-    // Question input
-    const questionInput = document.createElement('input');
-    questionInput.type = 'text';
-    questionInput.placeholder = 'Enter your question';
-    questionInput.className = 'question-input';
-    
-    // Format select
-    const formatSelect = document.createElement('select');
-    formatSelect.className = 'format-select';
-    formatSelect.innerHTML = `
-        <option value="text">Text</option>
-        <option value="number">Number (1-10)</option>
-        <option value="yesno">Yes/No</option>
-        <option value="multiple">Multiple Choice</option>
-    `;
-    formatSelect.onchange = () => handleFormatChange(formatSelect);
-    
-    // Multiple choice options container
-    const optionsContainer = document.createElement('div');
-    optionsContainer.className = 'options-container';
-    optionsContainer.innerHTML = `
-        <input type="text" 
-               class="options-input" 
-               placeholder="Options (comma-separated)"
-               title="Enter options separated by commas (e.g., Red, Blue, Green)">
-    `;
-    
-    // Delete button
-    const deleteButton = document.createElement('button');
-    deleteButton.className = 'delete-question';
-    deleteButton.innerHTML = '×';
-    deleteButton.onclick = () => questionDiv.remove();
-    
-    questionDiv.appendChild(questionInput);
-    questionDiv.appendChild(formatSelect);
-    questionDiv.appendChild(optionsContainer);
-    questionDiv.appendChild(deleteButton);
-    questionsContainer.appendChild(questionDiv);
-}
-
-async function saveQuestions() {
-    if (!currentApiKey) {
-        alert('Please generate an API key first');
+async function generateQuestionsFromDescription() {
+    const description = document.getElementById('naturalLanguageInput').value;
+    if (!description) {
+        alert('Please enter a description of your survey questions.');
         return;
     }
 
-    const questionItems = document.querySelectorAll('.question-item');
-    const questions = Array.from(questionItems).map(item => {
-        const question = item.querySelector('.question-input').value.trim();
-        const format = item.querySelector('.format-select').value;
-        const optionsInput = item.querySelector('.options-input');
-        
-        let options = null;
-        if (format === 'multiple' && optionsInput) {
-            const optionsText = optionsInput.value.trim();
-            if (optionsText) {
-                options = {};
-                const optionsList = optionsText.split(',').map(o => o.trim());
-                optionsList.forEach((opt, index) => {
-                    options[String.fromCharCode(65 + index)] = opt; // A, B, C, D...
-                });
-            }
-        }
-        
-        return {
-            question,
-            format,
-            options
-        };
-    }).filter(q => q.question);
-    
-    if (questions.length === 0) {
-        alert('Please add at least one question');
+    if (!currentApiKey) {
+        alert('Please generate an API key first.');
         return;
     }
 
     try {
-        const response = await fetch('/api/save-questions', {
+        // Log the request details
+        console.log('Sending request with API key:', currentApiKey);
+        
+        const response = await fetch('/api/translate-questions', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentApiKey}`,
+                'X-API-Key': currentApiKey // Adding alternative header in case server expects different format
+            },
+            body: JSON.stringify({ 
+                description,
+                api_key: currentApiKey // Including in body as well in case server expects it there
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Server response:', errorData);
+            throw new Error(errorData.error || `Failed to translate survey description (${response.status})`);
+        }
+
+        const data = await response.json();
+        console.log('Received questions:', data);
+        
+        if (!data.questions || !Array.isArray(data.questions)) {
+            throw new Error('Invalid response format: missing questions array');
+        }
+
+        questions = data.questions;
+        
+        // Display generated questions
+        const preview = document.getElementById('questionsPreview');
+        if (preview) {
+            preview.innerHTML = questions.map((q, i) => `
+                <div class="question-preview">
+                    <h4>Question ${i + 1}</h4>
+                    <p>${q.question}</p>
+                    <p><small>Format: ${q.format}</small></p>
+                    ${q.options ? `<p><small>Options: ${Object.entries(q.options).map(([k, v]) => `${k}: ${v}`).join(', ')}</small></p>` : ''}
+                </div>
+            `).join('');
+            
+            document.getElementById('generatedQuestions')?.classList.remove('hidden');
+        }
+        generateEmbedCode();
+    } catch (error) {
+        console.error('Error:', error);
+        alert(error.message || 'Failed to generate questions. Please try again.');
+    }
+}
+
+function useGeneratedQuestions() {
+    const container = document.getElementById('questions');
+    if (!container) {
+        console.error('Questions container not found');
+        return;
+    }
+    
+    container.innerHTML = '';
+    questions.forEach((q, i) => addQuestionToUI(q, i));
+    document.getElementById('generatedQuestions')?.classList.add('hidden');
+    generateEmbedCode();
+}
+
+function addQuestion() {
+    const question = {
+        question: '',
+        format: 'text',
+        options: null
+    };
+    questions.push(question);
+    
+    const container = document.getElementById('questions');
+    if (!container) {
+        console.error('Questions container not found');
+        return;
+    }
+    
+    addQuestionToUI(question, questions.length - 1);
+    generateEmbedCode();
+}
+
+function addQuestionToUI(question, index) {
+    const container = document.getElementById('questions');
+    if (!container) {
+        console.error('Questions container not found');
+        return;
+    }
+
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'question-item';
+    questionDiv.innerHTML = `
+        <input type="text" class="question-input" placeholder="Question text" value="${question.question}" onchange="updateQuestion(${index}, 'question', this.value)">
+        <select class="format-select" onchange="updateQuestion(${index}, 'format', this.value)">
+            <option value="text" ${question.format === 'text' ? 'selected' : ''}>Text</option>
+            <option value="number" ${question.format === 'number' ? 'selected' : ''}>Number (1-10)</option>
+            <option value="yesno" ${question.format === 'yesno' ? 'selected' : ''}>Yes/No</option>
+            <option value="multiple" ${question.format === 'multiple' ? 'selected' : ''}>Multiple Choice</option>
+        </select>
+        <div class="options-container ${question.format === 'multiple' ? 'visible' : ''}">
+            <input type="text" class="options-input" placeholder="Options (A: Option1, B: Option2, ...)" 
+                   value="${question.options ? Object.entries(question.options).map(([k, v]) => `${k}: ${v}`).join(', ') : ''}"
+                   onchange="updateOptions(${index}, this.value)">
+        </div>
+        <button class="delete-question" onclick="removeQuestion(${index})">×</button>
+    `;
+    container.appendChild(questionDiv);
+}
+
+function updateQuestion(index, field, value) {
+    questions[index][field] = value;
+    if (field === 'format') {
+        const optionsDiv = document.querySelectorAll('.question-item')[index].querySelector('.options-container');
+        optionsDiv.classList.toggle('visible', value === 'multiple');
+        if (value !== 'multiple') {
+            questions[index].options = null;
+        }
+    }
+    generateEmbedCode();
+}
+
+function updateOptions(index, value) {
+    const options = {};
+    value.split(',').forEach(opt => {
+        const [key, val] = opt.split(':').map(s => s.trim());
+        if (key && val) {
+            options[key.toUpperCase()] = val;
+        }
+    });
+    questions[index].options = options;
+    generateEmbedCode();
+}
+
+function removeQuestion(index) {
+    questions.splice(index, 1);
+    const container = document.getElementById('questions');
+    if (!container) {
+        console.error('Questions container not found');
+        return;
+    }
+    container.innerHTML = '';
+    questions.forEach((q, i) => addQuestionToUI(q, i));
+    generateEmbedCode();
+}
+
+function generateEmbedCode() {
+    if (!currentApiKey || !questions.length || !selectedIntegrationType) {
+        document.getElementById('embedCode').textContent = 'Please generate an API key, add questions, and select an integration type.';
+        return;
+    }
+
+    let code = '';
+    if (selectedIntegrationType === 'discord') {
+        code = generateDiscordCode();
+    } else {
+        code = generateWidgetCode();
+    }
+
+    document.getElementById('embedCode').textContent = code;
+}
+
+function generateDiscordCode() {
+    return `// Discord Bot Integration
+const config = {
+    apiKey: '${currentApiKey}',
+    questions: ${JSON.stringify(questions, null, 2)}
+};
+
+// 1. Add the bot to your Discord server using this link:
+// https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scope=bot
+
+// 2. Create a channel named 'webform-bot' in your server
+
+// 3. Use this code to start a survey:
+fetch('${window.location.origin}/api/dm', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'Authorization': \`Bearer \${config.apiKey}\`
+    },
+    body: JSON.stringify({
+        userId: 'DISCORD_USER_ID',
+        isStart: true,
+        questions: config.questions
+    })
+});`;
+}
+
+function generateWidgetCode() {
+    return `<!-- Survey Widget Integration -->
+<script src="${window.location.origin}/static/widget.js"></script>
+<script>
+// Configure the survey widget with natural language processing
+const surveyConfig = {
+    apiKey: '${currentApiKey}',
+    apiUrl: '${window.location.origin}',
+    questions: ${JSON.stringify(questions, null, 2)},
+    useNaturalLanguage: true // Enable natural language processing
+};
+
+// Initialize the widget with enhanced conversational abilities
+const widget = new SurveyWidget(surveyConfig);
+
+// Add custom event listeners for analytics (optional)
+widget.addEventListener('surveyStarted', () => {
+    console.log('Survey started with natural language processing enabled');
+});
+
+widget.addEventListener('surveyCompleted', (answers) => {
+    console.log('Survey completed', answers);
+});
+</script>`;
+}
+
+async function testSurvey() {
+    if (!currentApiKey || !questions.length || !selectedIntegrationType) {
+        alert('Please generate an API key, add questions, and select an integration type first.');
+        return;
+    }
+
+    const testWidget = document.getElementById('testWidget');
+    testWidget.classList.remove('hidden');
+    testWidget.innerHTML = '';
+
+    // Create container for both widgets
+    const widgetsContainer = document.createElement('div');
+    widgetsContainer.className = 'test-widgets-container';
+    testWidget.appendChild(widgetsContainer);
+
+    if (selectedIntegrationType === 'widget') {
+        // Add title for widgets section
+        const title = document.createElement('h3');
+        title.textContent = 'Widget Previews';
+        widgetsContainer.appendChild(title);
+
+        // Create container for local widget
+        const localWidgetContainer = document.createElement('div');
+        localWidgetContainer.className = 'widget-container';
+        const localTitle = document.createElement('h4');
+        localTitle.textContent = 'Local Widget';
+        localWidgetContainer.appendChild(localTitle);
+        widgetsContainer.appendChild(localWidgetContainer);
+
+        // Add local widget
+        const localScript = document.createElement('script');
+        localScript.textContent = `
+            new SurveyWidget({
+                apiKey: '${currentApiKey}',
+                apiUrl: '${window.location.origin}',
+                questions: ${JSON.stringify(questions)}
+            });
+        `;
+        localWidgetContainer.appendChild(localScript);
+
+        // Create container for external widget
+        const externalWidgetContainer = document.createElement('div');
+        externalWidgetContainer.className = 'widget-container';
+        const externalTitle = document.createElement('h4');
+        externalTitle.textContent = 'External Widget (Port 5001)';
+        externalWidgetContainer.appendChild(externalTitle);
+        widgetsContainer.appendChild(externalWidgetContainer);
+
+        // Add external widget script source
+        const externalScriptSrc = document.createElement('script');
+        externalScriptSrc.src = 'http://127.0.0.1:5001/static/widget.js';
+        externalWidgetContainer.appendChild(externalScriptSrc);
+
+        // Add external widget initialization
+        const externalScript = document.createElement('script');
+        externalScript.textContent = `
+            new SurveyWidget({
+                apiKey: 'uboqxXeUnuP9s3CcLqi3ek_e0D3pqUS9OsACTXaASmE',
+                apiUrl: 'http://127.0.0.1:5001',
+                questions: ${JSON.stringify([
+                    {
+                        "format": "text",
+                        "question": "What is your name?",
+                        "validation": {
+                            "allowedCharacters": "letters and spaces only"
+                        }
+                    },
+                    {
+                        "format": "text",
+                        "question": "What is your email address?",
+                        "validation": {
+                            "email": "valid email format"
+                        }
+                    }
+                ])}
+            });
+        `;
+        externalWidgetContainer.appendChild(externalScript);
+    } else {
+        // For Discord, show instructions
+        testWidget.innerHTML = `
+            <div class="discord-test-instructions">
+                <h3>Testing Discord Integration</h3>
+                <p>To test the Discord integration:</p>
+                <ol>
+                    <li>Make sure the bot is added to your server</li>
+                    <li>Create a channel named 'webform-bot'</li>
+                    <li>Enter your Discord User ID below to start the test</li>
+                </ol>
+                <div class="discord-test-input">
+                    <input type="text" id="discordUserId" placeholder="Enter Discord User ID">
+                    <button onclick="startDiscordTest()">Start Test</button>
+                </div>
+            </div>
+        `;
+    }
+}
+
+async function startDiscordTest() {
+    const userId = document.getElementById('discordUserId').value;
+    if (!userId) {
+        alert('Please enter your Discord User ID');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/dm', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentApiKey}`
             },
             body: JSON.stringify({
-                api_key: currentApiKey,
+                userId,
+                isStart: true,
                 questions
             })
         });
 
-        if (response.ok) {
-            generateEmbedCode();
-        } else {
-            alert('Failed to save questions. Please try again.');
+        if (!response.ok) {
+            throw new Error('Failed to start survey');
         }
+
+        alert('Survey started! Check your Discord DMs.');
     } catch (error) {
-        console.error('Error saving questions:', error);
-        alert('Failed to save questions. Please try again.');
+        console.error('Error starting survey:', error);
+        alert('Failed to start survey. Please check the console for details.');
     }
-}
-
-function generateEmbedCode() {
-    const questionItems = document.querySelectorAll('.question-item');
-    const questions = Array.from(questionItems).map(item => {
-        const question = item.querySelector('.question-input').value.trim();
-        const format = item.querySelector('.format-select').value;
-        const optionsInput = item.querySelector('.options-input');
-        
-        let options = null;
-        if (format === 'multiple' && optionsInput) {
-            const optionsText = optionsInput.value.trim();
-            if (optionsText) {
-                options = {};
-                const optionsList = optionsText.split(',').map(o => o.trim());
-                optionsList.forEach((opt, index) => {
-                    options[String.fromCharCode(65 + index)] = opt;
-                });
-            }
-        }
-        
-        return {
-            question,
-            format,
-            options
-        };
-    }).filter(q => q.question);
-    
-    if (questions.length === 0) {
-        alert('Please add at least one question');
-        return;
-    }
-
-    const startSurveyStr = startSurvey.toString().replace(/`/g, '\\`');
-    const addMessageStr = addMessage.toString().replace(/`/g, '\\`');
-
-    const embedCode = `
-<!-- Discord Survey Widget -->
-<div id="discord-survey">
-    <style>
-        .discord-survey {
-            max-width: 500px;
-            padding: 20px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin: 20px auto;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .survey-messages {
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin: 10px 0;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .message {
-            padding: 8px 12px;
-            border-radius: 8px;
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-        .bot-message {
-            background: #7289da;
-            color: white;
-            align-self: flex-start;
-        }
-        .user-message {
-            background: #e9ecef;
-            color: #2e3338;
-            align-self: flex-end;
-        }
-        .discord-survey input {
-            width: 100%;
-            padding: 8px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .discord-survey button {
-            background: #7289da;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-        }
-        .discord-survey button:hover {
-            background: #5b73c7;
-        }
-        .discord-survey .error {
-            color: #dc3545;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-        .discord-survey .success {
-            color: #28a745;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-        .message-input-container {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-        }
-        .message-input-container input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin: 0;
-        }
-        .message-input-container button {
-            padding: 8px 16px;
-            background: #7289da;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            width: auto;
-        }
-        .message-input-container button:hover {
-            background: #5b73c7;
-        }
-    </style>
-    <div class="discord-survey">
-        <h3>Discord Survey</h3>
-        <p>Enter your Discord User ID to start the survey:</p>
-        <input type="text" id="discord-user-id" placeholder="Discord User ID">
-        <button onclick="startSurvey()">Start Survey</button>
-        <div id="survey-error" class="error"></div>
-        <div id="survey-success" class="success"></div>
-    </div>
-</div>
-<script>
-// API URL - Replace this with your production server URL
-const API_URL = 'http://localhost:3001';
-
-// Survey questions
-const SURVEY_QUESTIONS = ${JSON.stringify(questions, null, 2)};
-
-${startSurveyStr}
-
-${addMessageStr}
-</script>`.replace(/\${/g, '\\${');
-
-    document.getElementById('embedCode').textContent = embedCode;
-    document.getElementById('embedSection').classList.remove('hidden');
-    
-    // Show preview
-    document.getElementById('previewContainer').innerHTML = embedCode;
-}
-
-// Helper function to add messages to the chat
-function addMessage(container, message, type) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}-message`;
-    messageDiv.textContent = message;
-    container.appendChild(messageDiv);
 }
 
 function copyEmbedCode() {
-    const embedCode = document.getElementById('embedCode').textContent;
-    navigator.clipboard.writeText(embedCode)
-        .then(() => alert('Embed code copied to clipboard!'))
-        .catch(err => console.error('Failed to copy:', err));
-}
-
-async function generateQuestionsFromDescription() {
-    if (!currentApiKey) {
-        alert('Please generate an API key first');
-        return;
-    }
-
-    const description = document.getElementById('naturalLanguageInput').value.trim();
-    if (!description) {
-        alert('Please enter a description of the questions you want to generate');
-        return;
-    }
-
-    try {
-        console.log('Sending request with:', {
-            api_key: currentApiKey,
-            description: description
-        });
-
-        const response = await fetch('/api/translate-questions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                api_key: currentApiKey,
-                description: description
-            })
-        });
-
-        const data = await response.json();
-        console.log('Received response:', data);
-        
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to generate questions');
-        }
-
-        if (!data.questions || !Array.isArray(data.questions)) {
-            throw new Error('Invalid response format: questions array is missing');
-        }
-
-        generatedQuestions = data.questions;
-        displayGeneratedQuestions(generatedQuestions);
-    } catch (error) {
-        console.error('Error details:', {
-            message: error.message,
-            stack: error.stack,
-            error: error
-        });
-        alert('Error generating questions: ' + error.message);
-    }
-}
-
-function displayGeneratedQuestions(questions) {
-    const container = document.querySelector('#generatedQuestions');
-    const preview = container.querySelector('.questions-preview');
-    
-    preview.innerHTML = questions.map((q, index) => `
-        <div class="preview-question">
-            <h4>Question ${index + 1}</h4>
-            <p><strong>Question:</strong> ${q.question}</p>
-            <p><strong>Format:</strong> ${q.format}</p>
-            ${q.options ? `
-                <p><strong>Options:</strong></p>
-                <ul>
-                    ${Object.entries(q.options).map(([key, value]) => 
-                        `<li>${key}: ${value}</li>`
-                    ).join('')}
-                </ul>
-            ` : ''}
-            ${q.validation ? `<p><strong>Validation:</strong> ${q.validation}</p>` : ''}
-        </div>
-    `).join('');
-    
-    container.classList.remove('hidden');
-}
-
-function useGeneratedQuestions() {
-    if (!generatedQuestions.length) {
-        alert('No questions have been generated yet');
-        return;
-    }
-
-    // Clear existing questions
-    const questionsContainer = document.getElementById('questions');
-    questionsContainer.innerHTML = '';
-
-    // Add each generated question
-    generatedQuestions.forEach(q => {
-        const questionDiv = document.createElement('div');
-        questionDiv.className = 'question-item';
-        
-        // Question input
-        const questionInput = document.createElement('input');
-        questionInput.type = 'text';
-        questionInput.value = q.question;
-        questionInput.className = 'question-input';
-        
-        // Format select
-        const formatSelect = document.createElement('select');
-        formatSelect.className = 'format-select';
-        formatSelect.innerHTML = `
-            <option value="text" ${q.format === 'text' ? 'selected' : ''}>Text</option>
-            <option value="number" ${q.format === 'number' ? 'selected' : ''}>Number (1-10)</option>
-            <option value="yesno" ${q.format === 'yesno' ? 'selected' : ''}>Yes/No</option>
-            <option value="multiple" ${q.format === 'multiple' ? 'selected' : ''}>Multiple Choice</option>
-        `;
-        formatSelect.onchange = () => handleFormatChange(formatSelect);
-        
-        // Multiple choice options container
-        const optionsContainer = document.createElement('div');
-        optionsContainer.className = 'options-container';
-        if (q.format === 'multiple' && q.options) {
-            optionsContainer.classList.add('visible');
-            const optionsStr = Object.values(q.options).join(', ');
-            optionsContainer.innerHTML = `
-                <input type="text" 
-                       class="options-input" 
-                       value="${optionsStr}"
-                       placeholder="Options (comma-separated)"
-                       title="Enter options separated by commas (e.g., Red, Blue, Green)">
-            `;
-        } else {
-            optionsContainer.innerHTML = `
-                <input type="text" 
-                       class="options-input" 
-                       placeholder="Options (comma-separated)"
-                       title="Enter options separated by commas (e.g., Red, Blue, Green)">
-            `;
-        }
-        
-        // Delete button
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'delete-question';
-        deleteButton.innerHTML = '×';
-        deleteButton.onclick = () => questionDiv.remove();
-        
-        questionDiv.appendChild(questionInput);
-        questionDiv.appendChild(formatSelect);
-        questionDiv.appendChild(optionsContainer);
-        questionDiv.appendChild(deleteButton);
-        questionsContainer.appendChild(questionDiv);
+    const code = document.getElementById('embedCode').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        alert('Code copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy code:', err);
+        alert('Failed to copy code. Please copy it manually.');
     });
-
-    // Scroll to the questions section
-    document.getElementById('questionSection').scrollIntoView({ behavior: 'smooth' });
-}
-
-// Add initial question
-addQuestion(); 
+} 

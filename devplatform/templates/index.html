@@ -22,6 +22,31 @@
             </div>
         </section>
 
+        <section id="integrationTypeSection" class="section">
+            <h2>Choose Integration Type</h2>
+            <p>Select how you want to integrate the survey platform with your application:</p>
+            <div class="integration-options">
+                <div class="integration-option" onclick="selectIntegrationType('discord')">
+                    <h3>Discord Bot Integration</h3>
+                    <p>Use our Discord bot to conduct surveys through Discord DMs.</p>
+                    <ul>
+                        <li>Native Discord experience</li>
+                        <li>Easy setup with bot invite</li>
+                        <li>Real-time interactions</li>
+                    </ul>
+                </div>
+                <div class="integration-option" onclick="selectIntegrationType('widget')">
+                    <h3>JavaScript Widget</h3>
+                    <p>Embed a chat widget directly on your website.</p>
+                    <ul>
+                        <li>Seamless website integration</li>
+                        <li>Customizable appearance</li>
+                        <li>No external dependencies</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
         <section id="naturalLanguageSection" class="section">
             <h2>Natural Language Question Generation</h2>
             <p>Describe your survey questions in natural language and we'll convert them to structured questions.</p>
@@ -37,7 +62,7 @@
             
             <div id="generatedQuestions" class="generated-questions hidden">
                 <h3>Generated Questions</h3>
-                <div class="questions-preview"></div>
+                <div id="questionsPreview" class="questions-preview"></div>
                 <button onclick="useGeneratedQuestions()" class="use-questions-btn">Use These Questions</button>
             </div>
         </section>
@@ -50,7 +75,7 @@
             </div>
             
             <button onclick="addQuestion()" class="add-question">Add Question</button>
-            <button onclick="saveQuestions()" class="save">Save Questions</button>
+            <button onclick="saveQuestions()" class="save-questions">Save Questions</button>
         </section>
 
         <section id="embedSection" class="section hidden">
@@ -66,6 +91,15 @@
                 <div id="previewContainer">
                     <!-- Preview will be shown here -->
                 </div>
+            </div>
+        </section>
+
+        <section id="testSection" class="section">
+            <h2>Test Your Survey</h2>
+            <p>Try out your survey before deploying:</p>
+            <button onclick="testSurvey()" class="test-survey-btn">Test Survey</button>
+            <div id="testWidget" class="test-widget hidden">
+                <!-- Test widget will be added here -->
             </div>
         </section>
 
