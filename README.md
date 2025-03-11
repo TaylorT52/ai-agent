@@ -48,7 +48,7 @@ This will:
 - Run in the background using PM2
 - Handle all survey interactions and responses
 - Process webhook deliveries
-To check the api:
+- To check the api:
 ```bash
 npm run health
 ```
