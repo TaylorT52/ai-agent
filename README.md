@@ -2,6 +2,16 @@
 
 A Discord bot that allows you to conduct surveys through DMs and collect responses.
 
+## Components
+
+1. **API Server** - The core server that:
+   - Runs the Discord bot
+   - Handles survey interactions
+   - Processes responses
+   - Delivers webhooks
+
+2. **Development Portal** - A tool for generating widget code that you can embed in your website to interact with the API
+
 ## Setup
 
 1. Clone the repository:
@@ -12,6 +22,11 @@ cd discord-survey-bot
 
 2. Install dependencies:
 ```bash
+# Install API server dependencies
+npm install
+
+# Install development portal dependencies (optional, only if you need to generate widgets)
+cd devplatform
 npm install
 ```
 
@@ -22,45 +37,66 @@ PORT=3001 # Optional, defaults to 3001
 ALLOWED_ORIGINS=* # Optional, for CORS
 ```
 
-## Running the Server
+## Running the Servers
 
-### Development Mode
-```bash
-npm run dev
-```
-This will:
-- Start the server with nodemon for auto-reloading
-- Watch for file changes
-- Show detailed logs in the console
-
-### Production Mode
+### API Server (Required)
 ```bash
 npm run prod
 ```
 This will:
-- Start the server using PM2 for process management
-- Run in the background
-- Auto-restart on crashes
-- Handle logs automatically
+- Start the Discord bot and API server on port 3001
+- Run in the background using PM2
+- Handle all survey interactions and responses
+- Process webhook deliveries
 
-### Useful PM2 Commands
+### Development Portal (Optional)
 ```bash
-# View logs
+npm run dev
+```
+This will:
+- Start a web interface on http://localhost:5001
+- Allow you to generate widget code
+- Provide documentation and examples
+- Let you customize widget appearance
+
+The development portal is just a tool to help you generate code - it doesn't process surveys or interact with Discord directly.
+
+### Managing the API Server
+```bash
+# View server logs
 npm run logs
 
-# Stop the server
+# Stop the API server
 npm run stop
 
-# Restart the server
+# Restart the API server
 npm run restart
 
-# Check server status
+# Check API server status
 npm run status
 ```
 
-## Testing the Bot
+## Using the System
 
-1. Start a survey:
+### 1. Start the API Server
+```bash
+npm run prod
+```
+
+### 2. Generate a Widget (Optional)
+1. Start the development portal:
+```bash
+npm run dev
+```
+2. Open http://localhost:5001
+3. Use the interface to:
+   - Configure your widget settings
+   - Generate embed code
+   - Copy the code to your website
+
+### 3. Direct API Usage
+If you don't want to use widgets, you can call the API directly:
+
 ```bash
 curl -X POST http://localhost:3001/api/dm \
   -H "Content-Type: application/json" \
@@ -80,15 +116,96 @@ curl -X POST http://localhost:3001/api/dm \
   }'
 ```
 
-2. Check server health:
+## Widget Integration
+
+Once you've generated a widget using the development portal, you can embed it in your website:
+
+```html
+<!-- Example widget code -->
+<div id="discord-survey-widget" data-api-key="YOUR_API_KEY">
+  <!-- Widget code from development portal goes here -->
+</div>
+
+<script src="https://your-api-server.com/widget.js"></script>
+```
+
+The widget will:
+1. Connect to your API server
+2. Handle survey creation and responses
+3. Manage the user interface
+4. Send data to any configured webhooks
+
+## Testing
+
+### Using the Development Portal
+1. Start the development portal:
+```bash
+npm run dev
+```
+2. Open http://localhost:5001 in your browser
+3. Use the interface to:
+   - Create test surveys
+   - View documentation
+   - Test different question formats
+   - Monitor responses
+
+### Using the API Directly
+1. Ensure the API server is running:
+```bash
+npm run prod
+```
+
+2. Start a survey:
+```bash
+curl -X POST http://localhost:3001/api/dm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "YOUR_DISCORD_USER_ID",
+    "isStart": true,
+    "questions": [
+      {
+        "question": "How satisfied are you?",
+        "format": "number"
+      },
+      {
+        "question": "Would you recommend us?",
+        "format": "yesno"
+      }
+    ]
+  }'
+```
+
+3. Check API server health:
 ```bash
 curl http://localhost:3001/health
 ```
 
-3. Get active survey status:
+4. Get active survey status:
 ```bash
 curl http://localhost:3001/api/survey-status/YOUR_DISCORD_USER_ID
 ```
+
+## Development Workflow
+
+1. Start both servers:
+```bash
+# Terminal 1: Start development portal
+npm run dev
+
+# Terminal 2: Start API server
+npm run prod
+```
+
+2. Use the development portal (http://localhost:5001) to:
+   - Read documentation
+   - Test survey creation
+   - View example code
+   - Monitor survey responses
+
+3. When ready for production:
+   - Use the API endpoints directly
+   - Implement webhook handlers
+   - Set up error monitoring
 
 ## Question Formats
 
