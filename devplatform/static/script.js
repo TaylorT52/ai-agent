@@ -358,7 +358,7 @@ function generateDiscordCode() {
                     message: 'Starting survey...',
                     isStart: true,
                     questions: ${JSON.stringify(questions)},
-                    webhookUrl: '/webhook'
+                    webhookUrl: 'http://127.0.0.5000'
                 })
             });
 
@@ -407,33 +407,3 @@ function copyEmbedCode() {
     }, 2000);
 }
 
-// Update the preview whenever questions are modified
-function updatePreview() {
-    generateEmbedCode();
-}
-
-// Add preview update calls to existing functions
-function addQuestionToUI(question) {
-    // ... existing code ...
-    updatePreview();
-}
-
-function updateQuestion(index) {
-    // ... existing code ...
-    updatePreview();
-}
-
-function updateOptions(index) {
-    // ... existing code ...
-    updatePreview();
-}
-
-function removeQuestion(index) {
-    // ... existing code ...
-    updatePreview();
-}
-
-function saveQuestions() {
-    // ... existing code ...
-    updatePreview();
-} 
