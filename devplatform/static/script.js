@@ -357,7 +357,8 @@ function generateDiscordCode() {
                     userId: userId,
                     message: 'Starting survey...',
                     isStart: true,
-                    questions: ${JSON.stringify(questions)}
+                    questions: ${JSON.stringify(questions)},
+                    webhookUrl: '/webhook'
                 })
             });
 
