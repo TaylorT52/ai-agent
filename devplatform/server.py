@@ -72,15 +72,15 @@ def translate_natural_language_to_questions(description):
         if not os.getenv('MISTRAL_API_KEY'):
             print("Error: MISTRAL_API_KEY not found in environment variables")
             return None
-            
+
         print(f"Sending request to Mistral API with description: {description}")
-        
+
         # Update the system message to be more explicit about JSON formatting
         response = client.chat.complete(
             model="mistral-large-latest",
             messages=[
                 {
-                    "role": "system", 
+                    "role": "system",
                     "content": """You are a JSON-only survey question generator.
 Your responses must:
 1. Start with [
@@ -90,7 +90,7 @@ Your responses must:
 5. Format questions exactly as shown in the example"""
                 },
                 {
-                    "role": "user", 
+                    "role": "user",
                     "content": TRANSLATE_PROMPT.format(description=description)
                 }
             ],
@@ -98,10 +98,10 @@ Your responses must:
             max_tokens=1000,  # Ensure we get complete responses
             random_seed=42    # For consistent outputs
         )
-        
+
         content = response.choices[0].message.content.strip()
         print(f"Raw API response: {content}")
-        
+
         # Clean up the response if needed
         if not content.startswith('['):
             # Try to find the start of the JSON array
@@ -110,7 +110,7 @@ Your responses must:
                 content = content[start_idx:]
             else:
                 raise ValueError("Response does not contain a JSON array")
-        
+
         if not content.endswith(']'):
             # Try to find the end of the JSON array
             end_idx = content.rfind(']')
@@ -118,7 +118,7 @@ Your responses must:
                 content = content[:end_idx + 1]
             else:
                 raise ValueError("Response does not contain a complete JSON array")
-        
+
         # Parse and validate the response
         try:
             questions = json.loads(content)
@@ -126,28 +126,28 @@ Your responses must:
             print(f"JSON parsing error: {str(e)}")
             print(f"Attempted to parse: {content}")
             raise
-        
+
         if not isinstance(questions, list):
             raise ValueError("Response is not a JSON array")
-        
+
         # Validate each question
         for question in questions:
             if not isinstance(question, dict):
                 raise ValueError("Question is not a JSON object")
-                
+
             if not all(key in question for key in ['question', 'format']):
                 print(f"Invalid question format - missing required fields: {question}")
                 raise ValueError("Invalid question format in response")
-            
+
             if question['format'] == 'multiple' and 'options' not in question:
                 print(f"Multiple choice question missing options: {question}")
                 raise ValueError("Multiple choice question missing options")
-            
+
             # Ensure format is valid
             if question['format'] not in ['text', 'number', 'yesno', 'multiple']:
                 print(f"Invalid question format type: {question['format']}")
                 raise ValueError(f"Invalid question format: {question['format']}")
-        
+
         return questions
     except json.JSONDecodeError as e:
         print(f"JSON parsing error: {str(e)}")
@@ -172,19 +172,19 @@ def generate_questions(topic, num_questions, requirements=""):
                 )}
             ]
         )
-        
+
         # Parse the response and validate the structure
         questions = json.loads(response.choices[0].message.content)
-        
+
         # Validate each question has required fields
         for question in questions:
             if not all(key in question for key in ['question', 'format']):
                 raise ValueError("Invalid question format in response")
-            
+
             # Ensure multiple choice questions have options
             if question['format'] == 'multiple' and 'options' not in question:
                 raise ValueError("Multiple choice question missing options")
-        
+
         return questions
     except Exception as e:
         print(f"Error generating questions: {str(e)}")
@@ -212,10 +212,10 @@ def save_questions():
     data = request.json
     api_key = data.get('api_key')
     questions = data.get('questions', [])
-    
+
     if not api_key or api_key not in api_keys:
         return jsonify({'error': 'Invalid API key'}), 401
-        
+
     api_keys[api_key]['questions'] = questions
     return jsonify({'success': True})
 
@@ -328,7 +328,7 @@ Example bad response:
             temperature=0.7,
             max_tokens=150
         )
-        
+
         return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"Error generating human response: {str(e)}")
@@ -351,7 +351,7 @@ def handle_dm():
     message = data.get('message')
     is_start = data.get('isStart')
     questions = data.get('questions', [])
-    
+
     if is_start:
         # Store the questions for this user's survey
         active_surveys[user_id] = {
@@ -359,30 +359,30 @@ def handle_dm():
             'questions': questions,
             'answers': []
         }
-        
+
         # Generate welcome message with first question
         first_question = questions[0]
         context = {
             "question": first_question['question'],
             "format": get_format_instructions(first_question['format'], first_question.get('options'))
         }
-        
+
         response = generate_human_response(json.dumps(context), "welcome")
         if not response:
             response = f"Welcome to the survey! {first_question['question']} {get_format_instructions(first_question['format'], first_question.get('options'))}"
-        
+
         return jsonify({
             'success': True,
             'message': response
         })
-    
+
     # Handle response and send next question
     if user_id not in active_surveys:
         return jsonify({'error': 'No active survey found'}), 400
-        
+
     survey = active_surveys[user_id]
     current_question = survey['questions'][survey['current_question']]
-    
+
     # Validate response format
     if not validate_response(message, current_question['format'], current_question.get('options')):
         context = {
@@ -390,13 +390,13 @@ def handle_dm():
             "format": get_format_instructions(current_question['format'], current_question.get('options')),
             "invalid_response": message
         }
-        
+
         response = generate_human_response(json.dumps(context), "invalid_format")
         if not response:
             response = f"That format isn't quite right. {get_format_instructions(current_question['format'], current_question.get('options'))}"
-        
+
         return jsonify({'error': response}), 400
-    
+
     # Store answer
     survey['answers'].append({
         'question': current_question['question'],
@@ -404,23 +404,25 @@ def handle_dm():
         'format': current_question['format']
     })
     survey['current_question'] += 1
-    
+
     # Check if survey is complete
     if survey['current_question'] >= len(survey['questions']):
         context = {
             "answers": survey['answers']
         }
-        
+
+        print("SURVEY IS COMPLETE", survey);
+
         response = generate_human_response(json.dumps(context), "completion")
         if not response:
             response = "Thank you for completing the survey! Your responses have been recorded."
-        
+
         del active_surveys[user_id]  # Clear the survey data
         return jsonify({
             'success': True,
             'message': response
         })
-    
+
     # Send next question
     next_question = survey['questions'][survey['current_question']]
     context = {
@@ -429,11 +431,11 @@ def handle_dm():
         "next_question": next_question['question'],
         "format": get_format_instructions(next_question['format'], next_question.get('options'))
     }
-    
+
     response = generate_human_response(json.dumps(context), "next_question")
     if not response:
         response = f"{next_question['question']} {get_format_instructions(next_question['format'], next_question.get('options'))}"
-    
+
     return jsonify({
         'success': True,
         'message': response
@@ -442,7 +444,7 @@ def handle_dm():
 def validate_response(response, format, options=None):
     if not response:
         return False
-        
+
     if format == 'text':
         return bool(response.strip())
     elif format == 'number':
@@ -461,28 +463,28 @@ def validate_response(response, format, options=None):
 def generate_survey_questions():
     data = request.json
     api_key = data.get('api_key')
-    
+
     if not api_key or api_key not in api_keys:
         return jsonify({'error': 'Invalid API key'}), 401
-    
+
     topic = data.get('topic')
     num_questions = data.get('num_questions', 5)
     requirements = data.get('requirements', '')
-    
+
     if not topic:
         return jsonify({'error': 'Topic is required'}), 400
-    
+
     if not 1 <= num_questions <= 20:
         return jsonify({'error': 'Number of questions must be between 1 and 20'}), 400
-    
+
     questions = generate_questions(topic, num_questions, requirements)
-    
+
     if questions is None:
         return jsonify({'error': 'Failed to generate questions'}), 500
-    
+
     # Store the generated questions
     api_keys[api_key]['questions'] = questions
-    
+
     return jsonify({
         'success': True,
         'questions': questions
@@ -494,30 +496,30 @@ def translate_questions():
     try:
         data = request.json
         print(f"Received request data: {data}")
-        
+
         api_key = data.get('api_key')
         description = data.get('description')
-        
+
         if not api_key or api_key not in api_keys:
             print(f"Invalid API key: {api_key}")
             return jsonify({'error': 'Invalid API key'}), 401
-        
+
         if not description:
             print("Missing description in request")
             return jsonify({'error': 'Survey description is required'}), 400
-        
+
         print(f"Processing description: {description}")
         questions = translate_natural_language_to_questions(description)
-        
+
         if questions is None:
             print("Failed to generate questions from description")
             return jsonify({'error': 'Failed to translate survey description'}), 500
-        
+
         print(f"Successfully generated questions: {questions}")
-        
+
         # Store the generated questions
         api_keys[api_key]['questions'] = questions
-        
+
         return jsonify({
             'success': True,
             'questions': questions,
@@ -531,4 +533,4 @@ def translate_questions():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001) 
+    app.run(debug=True, port=5001)
